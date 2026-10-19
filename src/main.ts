@@ -8,6 +8,7 @@ import "@fontsource/ibm-plex-mono/latin-500.css";
 import "@fontsource/ibm-plex-mono/latin-ext-500.css";
 import "./style.css";
 import { registerSW } from "virtual:pwa-register";
+import { createStorageBanner } from "./app/storage-banner";
 import { mountUpdateBanner } from "./app/update-banner";
 import { formatVersion } from "./footer";
 import { parseDateTimeLocal, toDateTimeLocalValue } from "./app/format";
@@ -32,8 +33,11 @@ if (app) {
   app.append(viewRoot, footer);
 
   const storage = safeLocalStorage();
+  const storageBanner = createStorageBanner(document.body);
+  if (!storage) storageBanner.report(false);
   const store = createStore({
     storage,
+    onSave: (saved) => storageBanner.report(saved),
     now: () => new Date(),
     newId: () => crypto.randomUUID(),
   });

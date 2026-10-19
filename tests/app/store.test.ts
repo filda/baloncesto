@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { newGame } from "../../src/app/match";
 import type { Game } from "../../src/app/match";
 import { STORAGE_KEY, emptyState, loadState, saveState, upsertGame } from "../../src/app/storage";
@@ -88,6 +88,30 @@ describe("persist", () => {
     const { store, storage } = makeStore();
     storage.failWrites = true;
     expect(store.persist()).toBe(false);
+  });
+});
+
+describe("onSave", () => {
+  it("reports the outcome of every write", () => {
+    const storage = new FakeStorage();
+    const onSave = vi.fn();
+    const store = createStore({ storage, now: () => NOW, newId: () => "x", onSave });
+    store.addSnapshot(snap(1, 1));
+    expect(onSave).toHaveBeenLastCalledWith(true);
+    storage.failWrites = true;
+    store.setTeamName("home", "A");
+    expect(onSave).toHaveBeenLastCalledWith(false);
+    storage.failWrites = false;
+    store.removeSnapshot(0);
+    expect(onSave).toHaveBeenLastCalledWith(true);
+    expect(onSave).toHaveBeenCalledTimes(3);
+  });
+
+  it("reports a failure without storage", () => {
+    const onSave = vi.fn();
+    const store = createStore({ storage: null, now: () => NOW, newId: () => "x", onSave });
+    store.persist();
+    expect(onSave).toHaveBeenCalledWith(false);
   });
 });
 

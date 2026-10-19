@@ -27,7 +27,7 @@ also the largest and least structured file.
   periodLength(period)`, `home ≥ 0`, `away ≥ 0`), or make `predict`/`elapsedSeconds` return
       `null` instead of throwing for out-of-domain input. Add regression tests for both storage
       filtering and render-time behavior.
-- [ ] **Silent data loss when persistence fails** — `src/main.ts:62-65`
+- [x] **Silent data loss when persistence fails** — `src/main.ts:62-65`
       `persist()` ignores the boolean returned by `saveState`. Quota exceeded / private mode /
       disabled storage means the user records scores for a whole game and nothing is ever saved, with
       no warning. Fix: surface a persistent, dismissible warning (reuse the update-banner pattern in

@@ -26,6 +26,8 @@ export interface StoreDeps {
   storage: KeyValueStorage | null;
   now: () => Date;
   newId: () => string;
+  /** Called with the outcome of every write (false: nothing could be stored). */
+  onSave?: (saved: boolean) => void;
 }
 
 export interface Store {
@@ -63,7 +65,9 @@ export function createStore(deps: StoreDeps): Store {
   // is replaced by another one (new game, opened game) is simply dropped.
   function persist(): boolean {
     state = setCurrent(upsertGame(state, game), game.id);
-    return saveState(deps.storage, state);
+    const saved = saveState(deps.storage, state);
+    deps.onSave?.(saved);
+    return saved;
   }
 
   function update(next: Game): void {

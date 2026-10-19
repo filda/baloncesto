@@ -482,12 +482,15 @@ footer {
   min-height: 44px;
 }
 
-/* Update prompt: a thin printed strip at the bottom, dismissible. */
-.update-banner {
+/* Banners: thin printed strips stacked at the bottom, dismissible. */
+.banner-host {
   position: fixed;
   right: 0;
   bottom: 0;
   left: 0;
+}
+
+.banner {
   display: flex;
   align-items: center;
   border-top: 1px solid var(--rule);
@@ -495,16 +498,22 @@ footer {
   font-size: 0.65rem;
 }
 
-.update-banner p {
+.banner p {
   flex: 1;
   margin: 0;
   padding: 0 10px;
   letter-spacing: 0.14em;
 }
 
-.update-banner button {
+.banner button {
   flex: none;
+  min-height: 44px;
   padding: 10px 12px;
   border-left: 1px solid var(--rule);
   font-size: 0.65rem;
+}
+
+.storage-banner {
+  border-top-width: 2px;
+  border-top-color: var(--away);
 }
