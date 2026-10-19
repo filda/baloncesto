@@ -50,6 +50,12 @@ export interface Store {
   removeSnapshot(index: number): void;
   setTeamName(side: Side, value: string): void;
   setLocation(coords: Coords, place: string | undefined): void;
+  /**
+   * Re-reads the stored state after a write by another tab. The current game is kept (in its
+   * stored version) if it still exists, otherwise replaced by a fresh empty game. Nothing is
+   * written. Returns true when the current game differs from before.
+   */
+  reload(): boolean;
   /** Games with at least one snapshot, newest first. */
   history(): Game[];
 }
@@ -121,6 +127,12 @@ export function createStore(deps: StoreDeps): Store {
     },
     setLocation(coords, place) {
       update(withLocation(game, coords, place));
+    },
+    reload() {
+      const before = game;
+      state = loadState(deps.storage);
+      game = findGame(state, before.id) ?? fresh();
+      return JSON.stringify(game) !== JSON.stringify(before);
     },
     history() {
       return listHistory(state);

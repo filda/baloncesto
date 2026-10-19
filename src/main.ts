@@ -18,6 +18,7 @@ import { lastSnapshot, nextInputDefaults, shouldOpenNewFormOnStart } from "./app
 import { ROUTE_HASH, resolveHash } from "./app/router";
 import { safeLocalStorage } from "./app/storage";
 import { createStore } from "./app/store";
+import { applyForeignWrite, watchStorage } from "./app/sync";
 import { mountView } from "./app/view";
 import type { NewGameForm } from "./app/view";
 import { validateSnapshot } from "./domain/validate";
@@ -169,6 +170,15 @@ if (app) {
   });
 
   window.addEventListener("hashchange", route);
+  watchStorage(window, storage, () =>
+    applyForeignWrite(store, {
+      resetPlaceLookup,
+      showGame,
+      refreshHistory() {
+        if (resolveHash(location.hash).route === "history") view.renderHistory(store.history());
+      },
+    }),
+  );
   showGame();
   const start = resolveHash(location.hash);
   if (!start.known) history.replaceState(null, "", ROUTE_HASH.sheet);

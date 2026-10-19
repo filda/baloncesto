@@ -32,7 +32,7 @@ also the largest and least structured file.
       disabled storage means the user records scores for a whole game and nothing is ever saved, with
       no warning. Fix: surface a persistent, dismissible warning (reuse the update-banner pattern in
       `src/app/update-banner.ts`) when a save fails, and re-check on the next save.
-- [ ] **Multi-tab writes clobber state** — `src/app/storage.ts`, `src/main.ts`
+- [x] **Multi-tab writes clobber state** — `src/app/storage.ts`, `src/main.ts`
       Each tab keeps the full state in memory and writes it wholesale; two tabs overwrite each other
       (last write wins, including deleting games created in the other tab). Minimum fix: listen to
       the `storage` event, detect a foreign write, and re-`loadState` (or at least warn). Better
