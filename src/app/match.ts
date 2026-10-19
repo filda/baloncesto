@@ -3,9 +3,10 @@ import { predict } from "../domain/predict";
 import type { Prediction, Snapshot } from "../domain/predict";
 import type { SnapshotInput } from "../domain/validate";
 
+/** Coordinates (lat and lon always together) and/or a place name; at least one of them is present. */
 export interface GameLocation {
-  lat: number;
-  lon: number;
+  lat?: number;
+  lon?: number;
   place?: string;
 }
 
@@ -35,6 +36,47 @@ export function newGame(id: string, now: Date): Game {
     awayName: DEFAULT_AWAY_NAME,
     snapshots: [],
   };
+}
+
+export const MAX_TEAM_NAME_LENGTH = 24;
+
+/** Trims and truncates a team name; blank input yields the fallback. */
+export function normalizeTeamName(input: string, fallback: string): string {
+  const name = input.trim().slice(0, MAX_TEAM_NAME_LENGTH).trim();
+  return name === "" ? fallback : name;
+}
+
+export interface NewGameInput {
+  id: string;
+  createdAt: Date;
+  homeName: string;
+  awayName: string;
+  lat?: number;
+  lon?: number;
+  place?: string;
+}
+
+/** Builds an empty game from the new-game form values; the location is omitted when unknown. */
+export function createGame(input: NewGameInput): Game {
+  const place = input.place?.trim() || undefined;
+  const hasCoords = input.lat !== undefined && input.lon !== undefined;
+  const game = newGame(input.id, input.createdAt);
+  game.homeName = normalizeTeamName(input.homeName, DEFAULT_HOME_NAME);
+  game.awayName = normalizeTeamName(input.awayName, DEFAULT_AWAY_NAME);
+  if (hasCoords) {
+    game.location = place
+      ? { lat: input.lat, lon: input.lon, place }
+      : { lat: input.lat, lon: input.lon };
+  } else if (place) {
+    game.location = { place };
+  }
+  return game;
+}
+
+/** "2026-10-19 20:05 · Place" (the place is omitted when absent). */
+export function gameInfoLine(game: Game, formatDate: (iso: string) => string): string {
+  const place = game.location?.place;
+  return place ? `${formatDate(game.createdAt)} · ${place}` : formatDate(game.createdAt);
 }
 
 export function addSnapshot<T extends HasSnapshots>(game: T, snapshot: Snapshot): T {

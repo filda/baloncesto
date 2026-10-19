@@ -22,10 +22,20 @@ function points(list: Point[]): string {
   return list.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
 }
 
-export function chartLabel(snapshots: Snapshot[], home: TeamSeries, away: TeamSeries): string {
+export interface TeamNames {
+  home: string;
+  away: string;
+}
+
+export function chartLabel(
+  snapshots: Snapshot[],
+  home: TeamSeries,
+  away: TeamSeries,
+  names: TeamNames = { home: "Home", away: "Away" },
+): string {
   const last = snapshots.at(-1);
   if (!last) return "Score chart: no entries yet";
-  const base = `Score chart: home ${last.home}, away ${last.away}`;
+  const base = `Score chart: ${names.home} ${last.home}, ${names.away} ${last.away}`;
   if (home.finalLabel === null || away.finalLabel === null) return base;
   return `${base}, projected final ${home.finalLabel} : ${away.finalLabel}`;
 }
@@ -38,7 +48,11 @@ export function finalLabelYs(homeY: number, awayY: number): [number, number] {
   return homeY <= awayY ? [homeY - shift, awayY + shift] : [homeY + shift, awayY - shift];
 }
 
-export function renderChart(container: HTMLElement, snapshots: Snapshot[]): void {
+export function renderChart(
+  container: HTMLElement,
+  snapshots: Snapshot[],
+  names?: TeamNames,
+): void {
   const width = Math.round(container.clientWidth);
   const height = Math.round(container.clientHeight);
   if (width <= 0 || height <= 0) {
@@ -53,7 +67,7 @@ export function renderChart(container: HTMLElement, snapshots: Snapshot[]): void
     width,
     height,
     role: "img",
-    "aria-label": chartLabel(snapshots, model.home, model.away),
+    "aria-label": chartLabel(snapshots, model.home, model.away, names),
   });
   root.style.display = "block";
 

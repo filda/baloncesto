@@ -3,26 +3,54 @@ import { roundScore } from "../domain/predict";
 import { renderChart } from "../chart/render";
 import type { FieldError, Field, SnapshotInput } from "../domain/validate";
 import { formatDateTime } from "./format";
-import { currentPrediction, lastSnapshot } from "./match";
+import { STATUS_TEXT } from "./geo";
+import type { LocationStatus } from "./geo";
+import {
+  DEFAULT_AWAY_NAME,
+  DEFAULT_HOME_NAME,
+  MAX_TEAM_NAME_LENGTH,
+  currentPrediction,
+  gameInfoLine,
+  lastSnapshot,
+} from "./match";
 import type { Game } from "./match";
+
+export type Side = "home" | "away";
+
+/** Raw values of the new-game form. */
+export interface NewGameForm {
+  homeName: string;
+  awayName: string;
+  /** `datetime-local` value, local time. */
+  dateTime: string;
+  place: string;
+}
 
 export interface ViewHandlers {
   onSubmit(input: SnapshotInput): void;
   onRemoveLast(): void;
   onNew(): void;
+  onTeamName(side: Side, value: string): void;
+  onStart(form: NewGameForm): void;
+  onCancel(): void;
   onHistory(): void;
   onBack(): void;
   onOpen(id: string): void;
   onDelete(id: string): void;
 }
 
-export type Screen = "sheet" | "history";
+export type Screen = "sheet" | "history" | "new";
 
 export interface View {
   render(game: Game, errors: FieldError[]): void;
   renderHistory(games: Game[]): void;
   showScreen(screen: Screen): void;
   setInput(input: SnapshotInput): void;
+  /** Resets the new-game form (empty names and place, given date and time). */
+  openNewForm(dateTime: string): void;
+  setLocationStatus(status: LocationStatus): void;
+  /** Fills the place field unless the user has already typed into it. */
+  suggestPlace(place: string): void;
   focusHome(): void;
 }
 
@@ -75,11 +103,28 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   scoreline.setAttribute("aria-label", "Current score");
   const homeScore = el("span", "hand home");
   const awayScore = el("span", "hand away");
-  const homeCell = el("div", "side");
-  homeCell.append(el("span", "printed", "Home"), homeScore);
-  const awayCell = el("div", "side");
-  awayCell.append(el("span", "printed", "Away"), awayScore);
+  const teamInputs = {} as Record<Side, HTMLInputElement>;
+  const cells = {} as Record<Side, HTMLElement>;
+  for (const side of ["home", "away"] as const) {
+    const input = el("input", "printed team-name");
+    input.id = `f-${side}-name`;
+    input.name = `${side}Name`;
+    input.type = "text";
+    input.maxLength = MAX_TEAM_NAME_LENGTH;
+    input.enterKeyHint = "done";
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("aria-label", `${side === "home" ? "Home" : "Away"} team name`);
+    input.addEventListener("change", () => handlers.onTeamName(side, input.value));
+    teamInputs[side] = input;
+    cells[side] = el("div", "side");
+  }
+  cells.home.append(teamInputs.home, homeScore);
+  cells.away.append(teamInputs.away, awayScore);
+  const homeCell = cells.home;
+  const awayCell = cells.away;
   scoreline.append(homeCell, el("span", "hand colon", ":"), awayCell);
+
+  const info = el("p", "printed sheet-info");
 
   const estimate = el("p", "estimate");
   const estimateLabel = el("span", "printed", "projected final");
@@ -96,6 +141,7 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   form.setAttribute("autocomplete", "off");
   const row = el("div", "entry-row");
   const inputs = {} as Record<Field, HTMLInputElement>;
+  const scoreLabels = {} as Record<Side, HTMLLabelElement>;
   const errorNodes = {} as Record<Field, HTMLElement>;
   for (const spec of FIELDS) {
     const cell = el("div", `cell ${spec.className}`.trim());
@@ -111,6 +157,7 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     if (spec.placeholder) input.placeholder = spec.placeholder;
     const error = el("p", "error");
     error.id = `${id}-error`;
+    if (spec.field === "home" || spec.field === "away") scoreLabels[spec.field] = label;
     cell.append(label, input, error);
     row.append(cell);
     inputs[spec.field] = input;
@@ -142,9 +189,74 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   history.setAttribute("aria-label", "Saved games");
   history.hidden = true;
 
-  const sheet = [scoreline, estimate, chart, form, log];
+  const newGameSection = el("section", "newgame");
+  newGameSection.id = "newgame";
+  newGameSection.setAttribute("aria-label", "New game");
+  newGameSection.hidden = true;
+  const newForm = el("form", "newgame-form");
+  newForm.id = "new-game-form";
+  newForm.noValidate = true;
+  newForm.setAttribute("autocomplete", "off");
+  const newFields = el("div", "newgame-fields");
+  function textField(
+    id: string,
+    name: string,
+    label: string,
+    type: "text" | "datetime-local",
+    className = "",
+  ): HTMLInputElement {
+    const cell = el("div", `field ${className}`.trim());
+    const labelNode = el("label", "printed", label);
+    labelNode.htmlFor = id;
+    const input = el("input", "hand");
+    input.id = id;
+    input.name = name;
+    input.type = type;
+    cell.append(labelNode, input);
+    newFields.append(cell);
+    return input;
+  }
+  const newHome = textField("n-home", "homeName", "Home team", "text", "home");
+  const newAway = textField("n-away", "awayName", "Away team", "text", "away");
+  newHome.maxLength = MAX_TEAM_NAME_LENGTH;
+  newHome.placeholder = DEFAULT_HOME_NAME;
+  newAway.maxLength = MAX_TEAM_NAME_LENGTH;
+  newAway.placeholder = DEFAULT_AWAY_NAME;
+  const newDate = textField("n-datetime", "dateTime", "Date & time", "datetime-local");
+  const newPlace = textField("n-place", "place", "Place", "text");
+  newPlace.enterKeyHint = "done";
+  const locationStatus = el("p", "printed location-status");
+  locationStatus.id = "location-status";
+  locationStatus.setAttribute("role", "status");
+  newFields.append(locationStatus);
+  const newActions = el("div", "actions");
+  const start = el("button", "primary", "Start game");
+  start.type = "submit";
+  start.id = "btn-start";
+  const cancel = el("button", "secondary", "Cancel");
+  cancel.type = "button";
+  cancel.id = "btn-cancel";
+  newActions.append(start, cancel);
+  newForm.append(newFields, newActions);
+  newGameSection.append(newForm);
+  let placeTouched = false;
+  newPlace.addEventListener("input", () => {
+    placeTouched = true;
+  });
+  newForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    handlers.onStart({
+      homeName: newHome.value,
+      awayName: newAway.value,
+      dateTime: newDate.value,
+      place: newPlace.value,
+    });
+  });
+  cancel.addEventListener("click", () => handlers.onCancel());
+
+  const sheet = [scoreline, info, estimate, chart, form, log];
   const footer = document.querySelector("footer");
-  root.replaceChildren(header, ...sheet, history);
+  root.replaceChildren(header, ...sheet, history, newGameSection);
   if (footer) root.append(footer);
 
   function readInput(): SnapshotInput {
@@ -166,11 +278,19 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   backButton.addEventListener("click", () => handlers.onBack());
 
   let current: Game | null = null;
-  new ResizeObserver(() => renderChart(chart, current?.snapshots ?? [])).observe(chart);
+  const namesOf = (game: Game) => ({ home: game.homeName, away: game.awayName });
+  new ResizeObserver(() =>
+    renderChart(chart, current?.snapshots ?? [], current ? namesOf(current) : undefined),
+  ).observe(chart);
 
   function render(game: Game, errors: FieldError[]): void {
     current = game;
-    renderChart(chart, game.snapshots);
+    renderChart(chart, game.snapshots, namesOf(game));
+    teamInputs.home.value = game.homeName;
+    teamInputs.away.value = game.awayName;
+    scoreLabels.home.textContent = game.homeName;
+    scoreLabels.away.textContent = game.awayName;
+    info.textContent = gameInfoLine(game, formatDateTime);
     const last = lastSnapshot(game);
     homeScore.textContent = scoreText(last?.home);
     awayScore.textContent = scoreText(last?.away);
@@ -239,6 +359,8 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
         " : ",
         el("span", "away", scoreText(last?.away)),
       );
+      const place = game.location?.place;
+      const placeLine = place ? [el("p", "printed history-place", place)] : [];
       const buttons = el("div", "actions");
       const open = el("button", "history-open primary", "Open");
       open.type = "button";
@@ -247,19 +369,20 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
       del.type = "button";
       del.addEventListener("click", () => handlers.onDelete(game.id));
       buttons.append(open, del);
-      item.append(meta, teams, buttons);
+      item.append(meta, teams, ...placeLine, buttons);
       return item;
     });
     history.replaceChildren(...rows);
   }
 
   function showScreen(screen: Screen): void {
-    const onHistory = screen === "history";
-    for (const node of sheet) node.hidden = onHistory;
-    history.hidden = !onHistory;
-    newButton.hidden = onHistory;
-    historyButton.hidden = onHistory;
-    backButton.hidden = !onHistory;
+    const onSheet = screen === "sheet";
+    for (const node of sheet) node.hidden = !onSheet;
+    history.hidden = screen !== "history";
+    newGameSection.hidden = screen !== "new";
+    newButton.hidden = !onSheet;
+    historyButton.hidden = !onSheet;
+    backButton.hidden = screen !== "history";
   }
 
   function setInput(values: SnapshotInput): void {
@@ -269,6 +392,23 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     inputs.away.value = values.away;
   }
 
+  function openNewForm(dateTime: string): void {
+    newHome.value = "";
+    newAway.value = "";
+    newDate.value = dateTime;
+    newPlace.value = "";
+    placeTouched = false;
+  }
+
+  function setLocationStatus(status: LocationStatus): void {
+    locationStatus.textContent = STATUS_TEXT[status];
+    locationStatus.dataset.status = status;
+  }
+
+  function suggestPlace(place: string): void {
+    if (!placeTouched) newPlace.value = place;
+  }
+
   function focusHome(): void {
     inputs.home.focus();
     inputs.home.select();
@@ -276,5 +416,14 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
 
   showScreen("sheet");
 
-  return { render, renderHistory, showScreen, setInput, focusHome };
+  return {
+    render,
+    renderHistory,
+    showScreen,
+    setInput,
+    openNewForm,
+    setLocationStatus,
+    suggestPlace,
+    focusHome,
+  };
 }

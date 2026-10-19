@@ -39,13 +39,17 @@ function isSnapshot(value: unknown): value is Snapshot {
 }
 
 function isLocation(value: unknown): value is GameLocation {
+  if (!isRecord(value)) return false;
+  const placeOk = value.place === undefined || typeof value.place === "string";
+  const hasLat = value.lat !== undefined;
+  const hasLon = value.lon !== undefined;
+  if (hasLat !== hasLon || !placeOk) return false;
+  if (!hasLat) return value.place !== undefined;
   return (
-    isRecord(value) &&
     typeof value.lat === "number" &&
     Number.isFinite(value.lat) &&
     typeof value.lon === "number" &&
-    Number.isFinite(value.lon) &&
-    (value.place === undefined || typeof value.place === "string")
+    Number.isFinite(value.lon)
   );
 }
 

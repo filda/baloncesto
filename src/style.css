@@ -287,7 +287,7 @@ footer {
 
 .nav-button {
   flex: none;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 10px;
   border-left: 1px solid var(--rule);
   font-size: 0.7rem;
@@ -335,5 +335,106 @@ footer {
 }
 
 .history-row .actions button {
+  min-height: 44px;
+}
+
+/* Editable team names: look like printed labels until focused. */
+.scoreline .side {
+  min-width: 0;
+}
+
+.team-name {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  text-overflow: ellipsis;
+}
+
+.scoreline .side:last-child .team-name {
+  text-align: right;
+}
+
+.team-name:focus {
+  outline: 0;
+  border-bottom-color: var(--rule);
+}
+
+.entry label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-info {
+  min-height: 1.2em;
+  margin: 0;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-place {
+  margin: 0;
+  padding: 2px 8px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.newgame {
+  margin: 12px 0;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.newgame .field {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px 4px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.newgame .field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  font-size: 1.8rem;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.newgame .field.home input {
+  color: var(--home);
+}
+
+.newgame .field.away input {
+  color: var(--away);
+}
+
+.newgame .field input:focus {
+  outline: 0;
+  border-bottom: 2px solid currentColor;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.location-status {
+  margin: 0;
+  padding: 8px;
+}
+
+.newgame .actions button {
   min-height: 44px;
 }

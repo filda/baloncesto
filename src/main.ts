@@ -8,11 +8,18 @@ import "@fontsource/ibm-plex-mono/latin-500.css";
 import "@fontsource/ibm-plex-mono/latin-ext-500.css";
 import "./style.css";
 import { formatVersion } from "./footer";
+import { parseDateTimeLocal, toDateTimeLocalValue } from "./app/format";
+import { browserFetchJson, browserGetPosition, locate } from "./app/geo";
+import type { Coords } from "./app/geo";
 import {
+  DEFAULT_AWAY_NAME,
+  DEFAULT_HOME_NAME,
   addSnapshot,
+  createGame as buildGame,
   lastSnapshot,
   newGame,
   nextInputDefaults,
+  normalizeTeamName,
   removeLastSnapshot,
 } from "./app/match";
 import type { Game } from "./app/match";
@@ -27,10 +34,12 @@ import {
   upsertGame,
 } from "./app/storage";
 import { mountView } from "./app/view";
+import type { NewGameForm } from "./app/view";
 import { validateSnapshot } from "./domain/validate";
 
 const HISTORY_HASH = "#/history";
 const SHEET_HASH = "#/";
+const NEW_HASH = "#/new";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -45,14 +54,18 @@ if (app) {
   const createGame = () => newGame(crypto.randomUUID(), new Date());
   let game: Game = findGame(state, state.currentId) ?? createGame();
 
-  // Persistence rule: a game is written to `games` once it has at least one snapshot.
-  // An empty game that was never saved is not persisted (and is not current on reload);
-  // a saved game that becomes empty again via undo stays saved.
+  // Persistence rule: the current game is always written (names and place survive a reload even
+  // before the first snapshot); the history only lists games with snapshots. An empty game that
+  // is replaced by another one (new game, opened game) is simply dropped.
   function persist(): void {
-    const saved = game.snapshots.length > 0 || findGame(state, game.id) !== null;
-    if (saved) state = upsertGame(state, game);
-    state = setCurrent(state, saved ? game.id : null);
+    state = setCurrent(upsertGame(state, game), game.id);
     saveState(storage, state);
+  }
+
+  function switchTo(next: Game): void {
+    if (game.snapshots.length === 0 && game.id !== next.id) state = deleteGame(state, game.id);
+    game = next;
+    persist();
   }
 
   function showGame(): void {
@@ -60,8 +73,46 @@ if (app) {
     view.setInput(nextInputDefaults(game));
   }
 
+  // Bumped on every form opening so late geolocation results of a closed form are ignored.
+  let formSession = 0;
+  let coords: Coords | null = null;
+
+  function openNewForm(): void {
+    const session = ++formSession;
+    coords = null;
+    view.openNewForm(toDateTimeLocalValue(new Date()));
+    void locate(
+      { getPosition: browserGetPosition, fetchJson: browserFetchJson, storage },
+      (update) => {
+        if (session !== formSession) return;
+        view.setLocationStatus(update.status);
+        if (update.coords) coords = update.coords;
+        if (update.place) view.suggestPlace(update.place);
+      },
+    );
+  }
+
+  function startGame(form: NewGameForm): void {
+    formSession++;
+    const created = buildGame({
+      id: crypto.randomUUID(),
+      createdAt: parseDateTimeLocal(form.dateTime) ?? new Date(),
+      homeName: form.homeName,
+      awayName: form.awayName,
+      lat: coords?.lat,
+      lon: coords?.lon,
+      place: form.place,
+    });
+    switchTo(created);
+    showGame();
+    location.hash = SHEET_HASH;
+  }
+
   function route(): void {
-    if (location.hash === HISTORY_HASH) {
+    if (location.hash === NEW_HASH) {
+      view.showScreen("new");
+      openNewForm();
+    } else if (location.hash === HISTORY_HASH) {
       view.renderHistory(listHistory(state));
       view.showScreen("history");
     } else {
@@ -88,11 +139,20 @@ if (app) {
       showGame();
     },
     onNew() {
-      if (game.snapshots.length > 0) {
-        game = createGame();
-        persist();
-        showGame();
-      }
+      location.hash = NEW_HASH;
+    },
+    onTeamName(side, value) {
+      game =
+        side === "home"
+          ? { ...game, homeName: normalizeTeamName(value, DEFAULT_HOME_NAME) }
+          : { ...game, awayName: normalizeTeamName(value, DEFAULT_AWAY_NAME) };
+      persist();
+      view.render(game, []);
+    },
+    onStart: startGame,
+    onCancel() {
+      formSession++;
+      location.hash = SHEET_HASH;
     },
     onHistory() {
       location.hash = HISTORY_HASH;
@@ -103,8 +163,7 @@ if (app) {
     onOpen(id) {
       const opened = findGame(state, id);
       if (!opened) return;
-      game = opened;
-      persist();
+      switchTo(opened);
       showGame();
       location.hash = SHEET_HASH;
     },

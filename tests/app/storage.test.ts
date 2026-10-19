@@ -57,6 +57,13 @@ describe("loadState / saveState", () => {
     expect(loadState(storage)).toEqual(state);
   });
 
+  it("accepts place-only and coordinates-only locations", () => {
+    const placeOnly = { ...game("p", "2026-01-01T10:00:00.000Z"), location: { place: "Brno" } };
+    const coordsOnly = { ...game("c", "2026-01-02T10:00:00.000Z"), location: { lat: 1, lon: 2 } };
+    const state = { version: 1, currentId: null, games: [placeOnly, coordsOnly] };
+    expect(loadState(stored(state)).games).toEqual([placeOnly, coordsOnly]);
+  });
+
   it("uses the versioned key", () => {
     const storage = new FakeStorage();
     saveState(storage, emptyState());
@@ -103,6 +110,10 @@ describe("loadState / saveState", () => {
         { ...good, id: "x4", snapshots: [{ period: 1, remaining: 300, home: 1 }] },
         { ...good, id: "x5", snapshots: "none" },
         { ...good, id: "x6", location: { lat: "1", lon: 2 } },
+        { ...good, id: "x7", location: { lat: 1 } },
+        { ...good, id: "x8", location: { lon: 1, place: "Brno" } },
+        { ...good, id: "x9", location: {} },
+        { ...good, id: "x10", location: { place: 5 } },
         "garbage",
         null,
       ],

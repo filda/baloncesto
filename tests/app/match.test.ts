@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   addSnapshot,
+  createGame,
   currentPrediction,
+  gameInfoLine,
+  normalizeTeamName,
   lastSnapshot,
   newGame,
   nextInputDefaults,
@@ -74,5 +77,65 @@ describe("game helpers", () => {
   it("prefills from the last snapshot", () => {
     const g = addSnapshot(addSnapshot(empty(), a), { ...b, remaining: 65 });
     expect(nextInputDefaults(g)).toEqual({ period: "2", clock: "1:05", home: "30", away: "24" });
+  });
+});
+
+describe("normalizeTeamName", () => {
+  it("trims and falls back for blank input", () => {
+    expect(normalizeTeamName("  Lakers ", "Home")).toBe("Lakers");
+    expect(normalizeTeamName("", "Home")).toBe("Home");
+    expect(normalizeTeamName("   ", "Away")).toBe("Away");
+  });
+
+  it("truncates to 24 characters", () => {
+    expect(normalizeTeamName("A".repeat(30), "Home")).toBe("A".repeat(24));
+    expect(normalizeTeamName(`${"B".repeat(23)} ${"C".repeat(5)}`, "Home")).toBe("B".repeat(23));
+  });
+});
+
+describe("createGame", () => {
+  const input = { id: "g2", createdAt: now, homeName: " Lakers ", awayName: "" };
+
+  it("normalizes names and omits an unknown location", () => {
+    const g = createGame(input);
+    expect(g).toEqual({
+      id: "g2",
+      createdAt: "2026-03-04T18:30:00.000Z",
+      homeName: "Lakers",
+      awayName: "Away",
+      snapshots: [],
+    });
+    expect("location" in g).toBe(false);
+  });
+
+  it("keeps coordinates with and without a place", () => {
+    expect(createGame({ ...input, lat: 1, lon: 2, place: " Hall " }).location).toEqual({
+      lat: 1,
+      lon: 2,
+      place: "Hall",
+    });
+    expect(createGame({ ...input, lat: 1, lon: 2, place: " " }).location).toEqual({
+      lat: 1,
+      lon: 2,
+    });
+  });
+
+  it("allows a place without coordinates and ignores a lone coordinate", () => {
+    expect(createGame({ ...input, place: "Hall" }).location).toEqual({ place: "Hall" });
+    expect(createGame({ ...input, lat: 1, place: "Hall" }).location).toEqual({ place: "Hall" });
+    expect(createGame({ ...input, lat: 1 }).location).toBeUndefined();
+  });
+});
+
+describe("gameInfoLine", () => {
+  const fmt = (iso: string) => `fmt(${iso})`;
+
+  it("joins date and place, omitting a missing place", () => {
+    const withPlace = { ...empty(), location: { place: "Hall" } };
+    expect(gameInfoLine(withPlace, fmt)).toBe("fmt(2026-03-04T18:30:00.000Z) · Hall");
+    expect(gameInfoLine(empty(), fmt)).toBe("fmt(2026-03-04T18:30:00.000Z)");
+    expect(gameInfoLine({ ...empty(), location: { lat: 1, lon: 2 } }, fmt)).toBe(
+      "fmt(2026-03-04T18:30:00.000Z)",
+    );
   });
 });
