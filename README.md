@@ -49,7 +49,7 @@ The stored `version` is the schema version. `migrate()` in `src/app/storage.ts` 
 
 ### What loading drops
 
-`loadState` never throws. Unreadable input (no storage, missing key, invalid JSON, unknown version, `games` not an array) gives the empty state. Otherwise each stored game is validated and invalid games are dropped individually (a warning with the count is logged, and the app shows a banner), so one corrupt game cannot take down the others. A game is dropped when:
+`loadState` never throws. Unreadable input (no storage, missing key, invalid JSON, unknown version, `games` not an array) gives the empty state. Otherwise each stored game is validated and invalid games are dropped individually (a warning with the count is logged to the console), so one corrupt game cannot take down the others. A game is dropped when:
 
 - `id` is not a non-empty string, `createdAt` is not a parseable date string, or `homeName` / `awayName` are not strings;
 - `location` is present but malformed (see the schema above);
