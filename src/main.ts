@@ -13,58 +13,31 @@ import { formatVersion } from "./footer";
 import { parseDateTimeLocal, toDateTimeLocalValue } from "./app/format";
 import { browserFetchJson, browserGetPosition, locate } from "./app/geo";
 import type { Coords } from "./app/geo";
-import {
-  DEFAULT_AWAY_NAME,
-  DEFAULT_HOME_NAME,
-  addSnapshot,
-  createGame as buildGame,
-  lastSnapshot,
-  newGame,
-  nextInputDefaults,
-  normalizeTeamName,
-  shouldOpenNewFormOnStart,
-  removeSnapshotAt,
-  withLocation,
-} from "./app/match";
-import type { Game } from "./app/match";
-import {
-  deleteGame,
-  findGame,
-  listHistory,
-  loadState,
-  safeLocalStorage,
-  saveState,
-  setCurrent,
-  upsertGame,
-} from "./app/storage";
+import { lastSnapshot, nextInputDefaults, shouldOpenNewFormOnStart } from "./app/match";
+import { ROUTE_HASH, resolveHash } from "./app/router";
+import { safeLocalStorage } from "./app/storage";
+import { createStore } from "./app/store";
 import { mountView } from "./app/view";
 import type { NewGameForm } from "./app/view";
 import { validateSnapshot } from "./domain/validate";
 
-const HISTORY_HASH = "#/history";
-const SHEET_HASH = "#/";
-const NEW_HASH = "#/new";
-
 const app = document.querySelector<HTMLDivElement>("#app");
 
 if (app) {
+  const viewRoot = document.createElement("div");
+  viewRoot.id = "view";
   const footer = document.createElement("footer");
   footer.className = "printed";
   footer.textContent = formatVersion(__APP_COMMIT__, __APP_BUILD_DATE__);
-  app.append(footer);
+  app.append(viewRoot, footer);
 
   const storage = safeLocalStorage();
-  let state = loadState(storage);
-  const createGame = () => newGame(crypto.randomUUID(), new Date());
-  let game: Game = findGame(state, state.currentId) ?? createGame();
-
-  // Persistence rule: the current game is always written (names and place survive a reload even
-  // before the first snapshot); the history only lists games with snapshots. An empty game that
-  // is replaced by another one (new game, opened game) is simply dropped.
-  function persist(): void {
-    state = setCurrent(upsertGame(state, game), game.id);
-    saveState(storage, state);
-  }
+  const store = createStore({
+    storage,
+    now: () => new Date(),
+    newId: () => crypto.randomUUID(),
+  });
+  const locateDeps = { getPosition: browserGetPosition, fetchJson: browserFetchJson, storage };
 
   // Bumped when the current game changes so late "+ ADD PLACE" results are ignored.
   let placeSession = 0;
@@ -76,35 +49,24 @@ if (app) {
 
   function addPlaceToGame(): void {
     const session = ++placeSession;
-    const id = game.id;
-    void locate(
-      { getPosition: browserGetPosition, fetchJson: browserFetchJson, storage },
-      (update) => {
-        if (session !== placeSession || game.id !== id) return;
-        if (update.status === "unavailable") {
-          view.setPlaceStatus("unavailable");
-        } else if (update.coords && (update.place || update.status === "place-unavailable")) {
-          game = withLocation(game, update.coords, update.place);
-          persist();
-          view.setPlaceStatus(null);
-          view.render(game, []);
-        } else {
-          view.setPlaceStatus("locating");
-        }
-      },
-    );
-  }
-
-  function switchTo(next: Game): void {
-    resetPlaceLookup();
-    if (game.snapshots.length === 0 && game.id !== next.id) state = deleteGame(state, game.id);
-    game = next;
-    persist();
+    const id = store.game.id;
+    void locate(locateDeps, (update) => {
+      if (session !== placeSession || store.game.id !== id) return;
+      if (update.status === "unavailable") {
+        view.setPlaceStatus("unavailable");
+      } else if (update.coords && (update.place || update.status === "place-unavailable")) {
+        store.setLocation(update.coords, update.place);
+        view.setPlaceStatus(null);
+        view.render(store.game, []);
+      } else {
+        view.setPlaceStatus("locating");
+      }
+    });
   }
 
   function showGame(): void {
-    view.render(game, []);
-    view.setInput(nextInputDefaults(game));
+    view.render(store.game, []);
+    view.setInput(nextInputDefaults(store.game));
   }
 
   // Bumped on every form opening so late geolocation results of a closed form are ignored.
@@ -115,21 +77,18 @@ if (app) {
     const session = ++formSession;
     coords = null;
     view.openNewForm(toDateTimeLocalValue(new Date()));
-    void locate(
-      { getPosition: browserGetPosition, fetchJson: browserFetchJson, storage },
-      (update) => {
-        if (session !== formSession) return;
-        view.setLocationStatus(update.status);
-        if (update.coords) coords = update.coords;
-        if (update.place) view.suggestPlace(update.place);
-      },
-    );
+    void locate(locateDeps, (update) => {
+      if (session !== formSession) return;
+      view.setLocationStatus(update.status);
+      if (update.coords) coords = update.coords;
+      if (update.place) view.suggestPlace(update.place);
+    });
   }
 
   function startGame(form: NewGameForm): void {
     formSession++;
-    const created = buildGame({
-      id: crypto.randomUUID(),
+    resetPlaceLookup();
+    store.startGame({
       createdAt: parseDateTimeLocal(form.dateTime) ?? new Date(),
       homeName: form.homeName,
       awayName: form.awayName,
@@ -137,17 +96,17 @@ if (app) {
       lon: coords?.lon,
       place: form.place,
     });
-    switchTo(created);
     showGame();
-    location.hash = SHEET_HASH;
+    location.hash = ROUTE_HASH.sheet;
   }
 
   function route(): void {
-    if (location.hash === NEW_HASH) {
+    const { route: screen } = resolveHash(location.hash);
+    if (screen === "new") {
       view.showScreen("new");
       openNewForm();
-    } else if (location.hash === HISTORY_HASH) {
-      view.renderHistory(listHistory(state));
+    } else if (screen === "history") {
+      view.renderHistory(store.history());
       view.showScreen("history");
     } else {
       view.showScreen("sheet");
@@ -155,72 +114,63 @@ if (app) {
     window.scrollTo(0, 0);
   }
 
-  const view = mountView(app, {
+  const view = mountView(viewRoot, {
     onSubmit(input) {
-      const result = validateSnapshot(input, lastSnapshot(game) ?? undefined);
+      const result = validateSnapshot(input, lastSnapshot(store.game) ?? undefined);
       if (!result.ok) {
-        view.render(game, result.errors);
+        view.render(store.game, result.errors);
         return;
       }
-      game = addSnapshot(game, result.snapshot);
-      persist();
+      store.addSnapshot(result.snapshot);
       showGame();
       view.focusHome();
     },
     onRemoveEntry(index) {
-      game = removeSnapshotAt(game, index);
-      persist();
+      store.removeSnapshot(index);
       showGame();
     },
     onNew() {
-      location.hash = NEW_HASH;
+      location.hash = ROUTE_HASH.new;
     },
     onAddPlace: addPlaceToGame,
     onTeamName(side, value) {
-      game =
-        side === "home"
-          ? { ...game, homeName: normalizeTeamName(value, DEFAULT_HOME_NAME) }
-          : { ...game, awayName: normalizeTeamName(value, DEFAULT_AWAY_NAME) };
-      persist();
-      view.render(game, []);
+      store.setTeamName(side, value);
+      view.render(store.game, []);
     },
     onStart: startGame,
     onCancel() {
       formSession++;
-      location.hash = SHEET_HASH;
+      location.hash = ROUTE_HASH.sheet;
     },
     onHistory() {
-      location.hash = HISTORY_HASH;
+      location.hash = ROUTE_HASH.history;
     },
     onBack() {
-      location.hash = SHEET_HASH;
+      location.hash = ROUTE_HASH.sheet;
     },
     onOpen(id) {
-      const opened = findGame(state, id);
-      if (!opened) return;
-      switchTo(opened);
+      if (!store.open(id)) return;
+      resetPlaceLookup();
       showGame();
-      location.hash = SHEET_HASH;
+      location.hash = ROUTE_HASH.sheet;
     },
     onDelete(id) {
       if (!confirm("Delete this game?")) return;
-      state = deleteGame(state, id);
-      if (game.id === id) {
+      if (store.remove(id)) {
         resetPlaceLookup();
-        game = createGame();
         showGame();
       }
-      persist();
       route();
     },
   });
 
   window.addEventListener("hashchange", route);
   showGame();
-  const atSheet = location.hash === "" || location.hash === "#" || location.hash === SHEET_HASH;
-  if (atSheet && shouldOpenNewFormOnStart(findGame(state, state.currentId) ?? undefined)) {
+  const start = resolveHash(location.hash);
+  if (!start.known) history.replaceState(null, "", ROUTE_HASH.sheet);
+  if (start.route === "sheet" && shouldOpenNewFormOnStart(store.restored)) {
     // Replace the entry so the form is not a history step; CANCEL later returns to the sheet.
-    history.replaceState(null, "", NEW_HASH);
+    history.replaceState(null, "", ROUTE_HASH.new);
   }
   route();
 }

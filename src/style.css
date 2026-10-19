@@ -38,6 +38,13 @@ body {
   padding: 0 16px;
 }
 
+/* The view container takes the place of its children in the column (the chart grows). */
+#view {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
 .printed,
 label,
 th,

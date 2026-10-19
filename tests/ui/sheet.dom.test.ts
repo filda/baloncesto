@@ -1,0 +1,235 @@
+// @vitest-environment happy-dom
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mountSheet } from "../../src/app/view/sheet";
+import type { SheetView } from "../../src/app/view/sheet";
+import { $, attach, click, gameWith, spies, submit, type } from "./helpers";
+
+let handlers: ReturnType<typeof spies>;
+let sheet: SheetView;
+let root: HTMLElement;
+
+beforeEach(() => {
+  handlers = spies();
+  sheet = mountSheet(handlers);
+  root = attach(...sheet.nodes);
+});
+
+const input = (id: string) => $<HTMLInputElement>(root, `#f-${id}`);
+const logRows = () => [...root.querySelectorAll("tbody tr")];
+const cells = (row: Element) => [...row.querySelectorAll("td")].map((td) => td.textContent);
+
+const entries = [
+  { period: 1, remaining: 400, home: 10, away: 8 },
+  { period: 1, remaining: 300, home: 14, away: 12 },
+  { period: 2, remaining: 500, home: 20, away: 18 },
+];
+
+describe("render", () => {
+  it("shows team names, the info line and an empty log for a new game", () => {
+    sheet.render(gameWith([], "g1", { homeName: "Lakers", awayName: "Celtics" }), []);
+    expect($<HTMLInputElement>(root, "#f-home-name").value).toBe("Lakers");
+    expect($<HTMLInputElement>(root, "#f-away-name").value).toBe("Celtics");
+    expect(root.querySelector('label[for="f-home"]')?.textContent).toBe("Lakers");
+    expect(root.querySelector('label[for="f-away"]')?.textContent).toBe("Celtics");
+    expect($(root, ".sheet-info-text").textContent).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    expect($(root, ".log").hidden).toBe(true);
+    expect(logRows()).toHaveLength(0);
+  });
+
+  it("lists the log newest first with formatted values", () => {
+    sheet.render(gameWith(entries), []);
+    expect($(root, ".log").hidden).toBe(false);
+    const rows = logRows();
+    expect(rows).toHaveLength(3);
+    expect(cells(rows[0] as Element)).toEqual(["3", "2", "8:20", "20", "18", "×"]);
+    expect(cells(rows[2] as Element)).toEqual(["1", "1", "6:40", "10", "8", "×"]);
+  });
+
+  it("shows the place in the info line and hides the add-place button", () => {
+    sheet.render(gameWith([], "g1", { location: { place: "Brno gym" } }), []);
+    expect($(root, ".sheet-info-text").textContent).toContain("· Brno gym");
+    expect($(root, "#btn-add-place").hidden).toBe(true);
+  });
+
+  it("offers adding a place when none is known and reflects the lookup status", () => {
+    sheet.render(gameWith([]), []);
+    const add = $<HTMLButtonElement>(root, "#btn-add-place");
+    expect(add.hidden).toBe(false);
+    expect(add.textContent).toBe("+ Add place");
+    expect(add.disabled).toBe(false);
+    sheet.setPlaceStatus("locating");
+    expect(add.textContent).toBe("Locating…");
+    expect(add.disabled).toBe(true);
+    sheet.setPlaceStatus("unavailable");
+    expect(add.textContent).toBe("Location unavailable · retry");
+    expect(add.disabled).toBe(false);
+    sheet.setPlaceStatus(null);
+    expect(add.textContent).toBe("+ Add place");
+    click(add);
+    expect(handlers.onAddPlace).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a projected final once there is an entry", () => {
+    sheet.render(gameWith(entries), []);
+    const text = $(root, ".estimate-score").textContent ?? "";
+    expect(text).toMatch(/^\d+ : \d+$/);
+  });
+});
+
+describe("errors", () => {
+  const errors = [
+    { field: "clock" as const, message: "Enter time as m:ss." },
+    { field: "form" as const, message: "Scores cannot decrease." },
+  ];
+
+  it("shows field errors with aria wiring and the form error", () => {
+    sheet.render(gameWith([]), errors);
+    expect($(root, "#f-clock-error").textContent).toBe("Enter time as m:ss.");
+    expect(input("clock").getAttribute("aria-invalid")).toBe("true");
+    expect(input("clock").getAttribute("aria-describedby")).toBe("f-clock-error");
+    expect(input("period").hasAttribute("aria-invalid")).toBe(false);
+    expect(input("period").hasAttribute("aria-describedby")).toBe(false);
+    expect($(root, "#form-error").textContent).toBe("Scores cannot decrease.");
+  });
+
+  it("clears everything on the next render without errors", () => {
+    sheet.render(gameWith([]), errors);
+    sheet.render(gameWith([]), []);
+    expect($(root, "#f-clock-error").textContent).toBe("");
+    expect(input("clock").hasAttribute("aria-invalid")).toBe(false);
+    expect(input("clock").hasAttribute("aria-describedby")).toBe(false);
+    expect($(root, "#form-error").textContent).toBe("");
+  });
+
+  it("clears the form error when the user types", () => {
+    sheet.render(gameWith([]), errors);
+    type(input("home"), "5");
+    expect($(root, "#form-error").textContent).toBe("");
+  });
+});
+
+describe("submit flow", () => {
+  it("prevents the native submit and passes the raw values on", () => {
+    sheet.setInput({ period: "1", clock: "10:00", home: "0", away: "0" });
+    input("home").value = "12";
+    input("away").value = "9";
+    const event = submit($(root, "form.entry"));
+    expect(event.defaultPrevented).toBe(true);
+    expect(handlers.onSubmit).toHaveBeenCalledWith({
+      period: "1",
+      clock: "10:00",
+      home: "12",
+      away: "9",
+    });
+  });
+
+  it("completes an unfinished clock before submitting", () => {
+    sheet.setInput({ period: "1", clock: "4:4", home: "1", away: "2" });
+    submit($(root, "form.entry"));
+    expect(input("clock").value).toBe("4:40");
+    expect(handlers.onSubmit.mock.calls[0]?.[0].clock).toBe("4:40");
+  });
+
+  it("setInput fills all four fields", () => {
+    sheet.setInput({ period: "3", clock: "2:15", home: "40", away: "38" });
+    expect(
+      [input("period"), input("clock"), input("home"), input("away")].map((i) => i.value),
+    ).toEqual(["3", "2:15", "40", "38"]);
+  });
+
+  it("focusHome focuses and selects the home score", () => {
+    sheet.setInput({ period: "1", clock: "10:00", home: "17", away: "0" });
+    sheet.focusHome();
+    expect(document.activeElement).toBe(input("home"));
+    expect(input("home").selectionStart).toBe(0);
+    expect(input("home").selectionEnd).toBe(2);
+  });
+});
+
+describe("clock input", () => {
+  it("formats digits into m:ss while typing", () => {
+    const clock = input("clock");
+    type(clock, "1000");
+    expect(clock.value).toBe("10:00");
+    type(clock, "530");
+    expect(clock.value).toBe("5:30");
+    type(clock, "5a");
+    expect(clock.value).toBe("5");
+    type(clock, "123456");
+    expect(clock.value).toBe("12:34");
+  });
+
+  it("leaves an already formatted value untouched", () => {
+    const clock = input("clock");
+    type(clock, "5:30");
+    expect(clock.value).toBe("5:30");
+  });
+
+  it("moves the caret to the end after reformatting", () => {
+    const clock = input("clock");
+    type(clock, "530");
+    expect(clock.selectionStart).toBe(4);
+    expect(clock.selectionEnd).toBe(4);
+  });
+
+  it("completes the time on blur", () => {
+    const clock = input("clock");
+    type(clock, "44");
+    clock.value = "4:4";
+    clock.dispatchEvent(new Event("blur"));
+    expect(clock.value).toBe("4:40");
+    clock.value = "7";
+    clock.dispatchEvent(new Event("blur"));
+    expect(clock.value).toBe("7:00");
+  });
+});
+
+describe("log delete", () => {
+  it("calls the handler with the chronological index of the clicked row", () => {
+    sheet.render(gameWith(entries), []);
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>("button.log-delete")];
+    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Delete entry 3",
+      "Delete entry 2",
+      "Delete entry 1",
+    ]);
+    click(buttons[0] as HTMLElement);
+    expect(handlers.onRemoveEntry).toHaveBeenLastCalledWith(2);
+    click(buttons[2] as HTMLElement);
+    expect(handlers.onRemoveEntry).toHaveBeenLastCalledWith(0);
+    click(buttons[1] as HTMLElement);
+    expect(handlers.onRemoveEntry).toHaveBeenLastCalledWith(1);
+    expect(handlers.onRemoveEntry).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("team names", () => {
+  it("reports changes per side", () => {
+    const home = $<HTMLInputElement>(root, "#f-home-name");
+    home.value = "Lakers";
+    home.dispatchEvent(new Event("change"));
+    expect(handlers.onTeamName).toHaveBeenLastCalledWith("home", "Lakers");
+    const away = $<HTMLInputElement>(root, "#f-away-name");
+    away.value = "Celtics";
+    away.dispatchEvent(new Event("change"));
+    expect(handlers.onTeamName).toHaveBeenLastCalledWith("away", "Celtics");
+  });
+});
+
+describe("visibility", () => {
+  it("hides and shows all sheet nodes together", () => {
+    sheet.setHidden(true);
+    expect(sheet.nodes.every((n) => n.hidden)).toBe(true);
+    sheet.setHidden(false);
+    expect(sheet.nodes.every((n) => !n.hidden)).toBe(true);
+  });
+});
+
+describe("chart", () => {
+  it("renders into the chart container without throwing when it has no size", () => {
+    const spy = vi.spyOn(console, "error");
+    sheet.render(gameWith(entries), []);
+    expect(spy).not.toHaveBeenCalled();
+    expect($(root, "#chart")).toBeTruthy();
+  });
+});

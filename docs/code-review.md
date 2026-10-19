@@ -52,11 +52,11 @@ also the largest and least structured file.
       `games.filter(isGame)` throws away data with no `console.warn`, no quarantine key, no counter.
       A version bump bug or partial corruption becomes invisible data loss. Fix: log how many games
       were dropped and why (at least in dev), or store rejected items under a quarantine key.
-- [ ] **`main.ts` mixes routing, state, persistence and geolocation** — `src/main.ts`
+- [x] **`main.ts` mixes routing, state, persistence and geolocation** — `src/main.ts`
       Module-level mutable `state`/`game`/`formSession`/`coords`, plus hash routing and side effects
       in one file, with zero tests. Extract a small store (state + `persist`/`switchTo`/reducer) and
       a router module; both become unit-testable and `main.ts` shrinks to wiring.
-- [ ] **`view.ts` is a 470-line monolith with a fragile mount hack** — `src/app/view.ts:294-297`
+- [x] **`view.ts` is a 470-line monolith with a fragile mount hack** — `src/app/view.ts:294-297`
       `mountView` does `root.replaceChildren(...)` and then re-appends a footer it removed — this
       only works because `main.ts` happens to append the footer before mounting. Fix: let `main.ts`
       pass a dedicated container (or a `<slot>`-style child) for the view, and split the view into
@@ -89,7 +89,7 @@ also the largest and least structured file.
       Three redundant `select()` calls plus swallowing the first `mouseup` — documented, but
       fragile across browsers. Extract into a named helper and cover it with happy-dom tests; or
       switch to selecting on `pointerdown`.
-- [ ] **Unknown hashes silently render the sheet** — `src/main.ts:113-124`
+- [x] **Unknown hashes silently render the sheet** — `src/main.ts:113-124`
       Any garbage hash shows the sheet without normalizing the URL, so Back/Forward behaves
       surprisingly. Consider `history.replaceState` normalization, and deep links like
       `#/game/<id>` so a specific game can be reopened from an URL.

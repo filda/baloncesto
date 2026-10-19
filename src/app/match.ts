@@ -26,6 +26,8 @@ export interface HasSnapshots {
   snapshots: Snapshot[];
 }
 
+export type Side = "home" | "away";
+
 export const DEFAULT_HOME_NAME = "Home";
 export const DEFAULT_AWAY_NAME = "Away";
 
