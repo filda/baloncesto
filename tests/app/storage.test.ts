@@ -180,3 +180,128 @@ describe("state helpers", () => {
     expect(listHistory(emptyState())).toEqual([]);
   });
 });
+
+describe("loadState validation details", () => {
+  const g1 = game("a", "2026-01-01T10:00:00.000Z");
+  const g2 = game("b", "2026-01-02T10:00:00.000Z");
+  const load = (games: unknown[], extra: object = {}) =>
+    loadState(stored({ version: 1, currentId: null, games, ...extra })).games;
+
+  it("rejects a wrong version even when the games are valid", () => {
+    expect(loadState(stored({ version: 2, currentId: "a", games: [g1] }))).toEqual(emptyState());
+    expect(loadState(stored({ version: "1", currentId: null, games: [g1] }))).toEqual(emptyState());
+  });
+
+  it("drops games with a snapshot that is invalid, even when others are valid", () => {
+    const bad = { ...g1, snapshots: [snap, { ...snap, home: "x" }] };
+    const badFirst = { ...g1, id: "c", snapshots: [{ ...snap, period: 1.5 }, snap] };
+    expect(load([bad, badFirst, g2])).toEqual([g2]);
+  });
+
+  it("drops games with invalid names, ids or timestamps", () => {
+    expect(
+      load([
+        { ...g1, awayName: 5 },
+        { ...g1, homeName: 5 },
+        { ...g1, createdAt: 5 },
+      ]),
+    ).toEqual([]);
+    expect(
+      load([
+        { ...g1, id: "" },
+        { ...g1, id: 5 },
+        { ...g1, snapshots: "x" },
+      ]),
+    ).toEqual([]);
+    expect(load([null, "x", 5, [g1]])).toEqual([]);
+  });
+
+  it("drops games with a malformed location", () => {
+    const withLocation = (location: unknown) => ({ ...g1, location });
+    expect(
+      load([
+        withLocation(null),
+        withLocation("Brno"),
+        withLocation([]),
+        withLocation({}),
+        withLocation({ place: 5 }),
+        withLocation({ lat: 1 }),
+        withLocation({ lon: 1 }),
+        withLocation({ lat: "1", lon: 2 }),
+        withLocation({ lat: 1, lon: "2" }),
+        withLocation({ lat: 1, lon: null }),
+        withLocation({ lat: 1, lon: 2, place: 7 }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("drops games whose coordinates parse to infinity", () => {
+    for (const location of ['{"lat":1e999,"lon":2}', '{"lat":1,"lon":-1e999}']) {
+      const storage = new FakeStorage();
+      const raw = JSON.stringify({
+        version: 1,
+        currentId: null,
+        games: [game("a", "2026-01-01T10:00:00.000Z")],
+      });
+      storage.setItem(STORAGE_KEY, raw.replace(/}]}$/, `,"location":${location}}]}`));
+      expect(loadState(storage).games).toEqual([]);
+    }
+  });
+
+  it("keeps games with a valid location, with or without a place", () => {
+    const a = { ...g1, location: { lat: 0, lon: 0 } };
+    const b = { ...g2, location: { lat: -1.5, lon: 2.5, place: "Brno" } };
+    expect(load([a, b])).toEqual([a, b]);
+  });
+
+  it("keeps currentId only when it points to a valid game, wherever it is", () => {
+    const state = (currentId: unknown) =>
+      loadState(stored({ version: 1, currentId, games: [g1, g2] })).currentId;
+    expect(state("a")).toBe("a");
+    expect(state("b")).toBe("b");
+    expect(state("zzz")).toBeNull();
+    expect(state(5)).toBeNull();
+    expect(state(null)).toBeNull();
+  });
+});
+
+describe("listHistory ordering", () => {
+  const ids = (games: Game[]) => games.map((g) => g.id);
+  const dates = ["2026-01-01", "2026-01-02", "2026-01-03"];
+
+  it("sorts newest first for every input permutation", () => {
+    const perms = [
+      [0, 1, 2],
+      [0, 2, 1],
+      [1, 0, 2],
+      [1, 2, 0],
+      [2, 0, 1],
+      [2, 1, 0],
+    ];
+    for (const perm of perms) {
+      const games = perm.map((i) => game(`g${i}`, `${dates[i]}T10:00:00.000Z`));
+      expect(ids(listHistory({ version: 1, currentId: null, games }))).toEqual(["g2", "g1", "g0"]);
+    }
+  });
+
+  it("keeps insertion order for equal timestamps", () => {
+    const games = Array.from({ length: 40 }, (_, i) => game(`e${i}`, "2026-01-01T10:00:00.000Z"));
+    const sorted = listHistory({ version: 1, currentId: null, games });
+    expect(ids(sorted)).toEqual(games.map((g) => g.id));
+  });
+
+  it("orders mixed equal and distinct timestamps", () => {
+    const games = [
+      game("old1", "2026-01-01T10:00:00.000Z"),
+      game("new1", "2026-01-03T10:00:00.000Z"),
+      game("old2", "2026-01-01T10:00:00.000Z"),
+      game("new2", "2026-01-03T10:00:00.000Z"),
+    ];
+    expect(ids(listHistory({ version: 1, currentId: null, games }))).toEqual([
+      "new1",
+      "new2",
+      "old1",
+      "old2",
+    ]);
+  });
+});

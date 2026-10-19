@@ -136,3 +136,14 @@ describe("computeChart", () => {
     expect(computeChart([end(55, 0)], W, H).yTicks.map((t) => t.value)).toEqual([0, 20, 40, 60]);
   });
 });
+
+describe("computeChart scale", () => {
+  it("scales the y axis to the highest score of any snapshot, not just the last", () => {
+    const high: Snapshot = { period: 1, remaining: 300, home: 200, away: 5 };
+    const low: Snapshot = { period: 2, remaining: 300, home: 10, away: 8 };
+    const withHigh = computeChart([high, low], W, H);
+    const lowOnly = computeChart([low], W, H);
+    expect(withHigh.yTicks.at(-1)?.value).toBeGreaterThanOrEqual(200);
+    expect(lowOnly.yTicks.at(-1)?.value).toBeLessThan(200);
+  });
+});

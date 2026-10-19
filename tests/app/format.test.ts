@@ -30,3 +30,38 @@ describe("datetime-local helpers", () => {
     expect(parseDateTimeLocal("2026-10-19T25:00")).toBeNull();
   });
 });
+
+describe("parseDateTimeLocal strictness", () => {
+  it("rejects impossible calendar dates and times", () => {
+    for (const value of [
+      "2026-02-31T10:00",
+      "2026-13-01T10:00",
+      "2026-00-10T10:00",
+      "2026-10-00T10:00",
+      "2026-10-32T10:00",
+      "2026-10-19T24:00",
+      "2026-10-19T25:00",
+      "2026-10-19T10:60",
+      "2026-10-19T23:60",
+    ]) {
+      expect(parseDateTimeLocal(value), value).toBeNull();
+    }
+  });
+
+  it("accepts boundary values and leap days", () => {
+    expect(parseDateTimeLocal("2028-02-29T00:00")).toEqual(new Date(2028, 1, 29, 0, 0));
+    expect(parseDateTimeLocal("2026-12-31T23:59")).toEqual(new Date(2026, 11, 31, 23, 59));
+    expect(parseDateTimeLocal("2027-02-29T10:00")).toBeNull();
+  });
+
+  it("does not let two-digit-range years roll into the 1900s", () => {
+    expect(parseDateTimeLocal("0050-01-01T10:00")).toBeNull();
+  });
+
+  it("rejects text before or after the value", () => {
+    expect(parseDateTimeLocal("x2026-10-19T10:00")).toBeNull();
+    expect(parseDateTimeLocal("2026-10-19T10:00x")).toBeNull();
+    expect(parseDateTimeLocal(" 2026-10-19T10:00")).toBeNull();
+    expect(parseDateTimeLocal("2026-10-19T10:00:00")).toBeNull();
+  });
+});

@@ -194,3 +194,25 @@ describe("validateSnapshot", () => {
     });
   });
 });
+
+describe("validateSnapshot numeric parsing", () => {
+  it("accepts multi-digit and zero-padded numbers", () => {
+    expect(validateSnapshot({ period: "01", clock: "5:30", home: "007", away: "300" })).toEqual({
+      ok: true,
+      snapshot: { period: 1, remaining: 330, home: 7, away: 300 },
+    });
+    expect(validateSnapshot({ period: "9", clock: "1:00", home: "12", away: "10" }).ok).toBe(true);
+  });
+
+  it("rejects out-of-range multi-digit numbers", () => {
+    const result = validateSnapshot({ period: "10", clock: "1:00", home: "301", away: "1000" });
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        { field: "period", message: PERIOD_MSG },
+        { field: "home", message: SCORE_MSG },
+        { field: "away", message: SCORE_MSG },
+      ],
+    });
+  });
+});

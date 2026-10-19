@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   GEOCACHE_KEY,
   GEOCACHE_MAX_ENTRIES,
+  STATUS_TEXT,
+  browserFetchJson,
+  browserGetPosition,
   cacheKey,
   getCachedPlace,
   locate,
@@ -227,5 +230,91 @@ describe("locate", () => {
     await r.done;
     expect(r.updates.at(-1)?.status).toBe("place-unavailable");
     expect(getCachedPlace(r.storage, 49.2, 16.6)).toBeNull();
+  });
+});
+
+describe("constants", () => {
+  it("exposes stable keys and status texts", () => {
+    expect(GEOCACHE_KEY).toBe("baloncesto:geocache");
+    expect(STATUS_TEXT).toEqual({
+      locating: "Locating…",
+      located: "Located",
+      unavailable: "Location unavailable",
+      "place-unavailable": "Place unavailable",
+    });
+  });
+});
+
+describe("placeFromNominatim fallbacks", () => {
+  it("ignores the generic building value yes but uses a named building", () => {
+    expect(
+      placeFromNominatim({ address: { building: "yes", road: "Main St", city: "Brno" } }),
+    ).toBe("Main St, Brno");
+    expect(
+      placeFromNominatim({ address: { building: "Gym", road: "Main St", city: "Brno" } }),
+    ).toBe("Gym, Brno");
+  });
+
+  it("falls back through town, village and municipality", () => {
+    expect(placeFromNominatim({ address: { town: "Tn", road: "R" } })).toBe("R, Tn");
+    expect(placeFromNominatim({ address: { village: "Vl", road: "R" } })).toBe("R, Vl");
+    expect(placeFromNominatim({ address: { municipality: "Mu", road: "R" } })).toBe("R, Mu");
+    expect(placeFromNominatim({ address: { municipality: "Mu" } })).toBe("Mu");
+  });
+});
+
+describe("browser wrappers", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects when geolocation is unsupported", async () => {
+    vi.stubGlobal("navigator", {});
+    await expect(browserGetPosition()).rejects.toThrow("Geolocation is not supported");
+    vi.stubGlobal("navigator", undefined);
+    await expect(browserGetPosition()).rejects.toThrow("Geolocation is not supported");
+  });
+
+  it("resolves coordinates and requests a cheap position", async () => {
+    const getCurrentPosition = vi.fn(
+      (ok: (p: unknown) => void, _fail: unknown, _options: unknown) =>
+        ok({ coords: { latitude: 49.2, longitude: 16.6 } }),
+    );
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
+    await expect(browserGetPosition()).resolves.toEqual({ lat: 49.2, lon: 16.6 });
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(getCurrentPosition.mock.calls[0]?.[2]).toEqual({
+      enableHighAccuracy: false,
+      timeout: 10000,
+      maximumAge: 600000,
+    });
+  });
+
+  it("rejects with the error message when the position fails", async () => {
+    vi.stubGlobal("navigator", {
+      geolocation: {
+        getCurrentPosition: (_ok: unknown, fail: (e: { message: string }) => void) =>
+          fail({ message: "User denied" }),
+      },
+    });
+    await expect(browserGetPosition()).rejects.toThrow("User denied");
+  });
+
+  it("fetches JSON with an Accept header", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve({ a: 1 }) }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(browserFetchJson("https://example.test/x")).resolves.toEqual({ a: 1 });
+    expect(fetchMock).toHaveBeenCalledWith("https://example.test/x", {
+      headers: { Accept: "application/json" },
+    });
+  });
+
+  it("rejects on a non-OK response without reading the body", async () => {
+    const json = vi.fn();
+    vi.stubGlobal("fetch", () => Promise.resolve({ ok: false, status: 503, json }));
+    await expect(browserFetchJson("https://example.test/x")).rejects.toThrow("HTTP 503");
+    expect(json).not.toHaveBeenCalled();
   });
 });
