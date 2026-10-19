@@ -28,6 +28,7 @@ Games are stored in localStorage.
 
 - Linear: team pace = points / elapsed time (whole game); prediction = current points + pace × remaining time.
 - When elapsed time is 0, no prediction is shown (known data only).
+- Prediction range (≈ 95 % interval): remaining points are treated as a random process of scoring events worth ~2 points, so with expected remaining points `E = pace × remaining time` the final score is `prediction ± 1.96 × √(2 × E)`; the lower bound is never below the current score. The range narrows towards the end of the game and is drawn as a light band around the dashed prediction line, with the min–max finals labelled at the end.
 - Output: curves + predicted final score (e.g. "82 : 76") at the end of the chart.
 - The calculation is a pure function in its own module, fully covered by unit tests.
 
