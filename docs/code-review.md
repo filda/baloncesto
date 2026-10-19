@@ -69,7 +69,7 @@ also the largest and least structured file.
       `isGame` accepts any non-empty string as `createdAt`; an invalid timestamp sorts
       unpredictably (and `formatDateTime` then renders it verbatim). Validate the ISO shape (or
       `!Number.isNaN(Date.parse(...))`) in `isGame`.
-- [ ] **Tighten tsconfig** — `tsconfig.json`
+- [x] **Tighten tsconfig** — `tsconfig.json`
       Add `noUncheckedIndexedAccess` (would have flagged several `array[n]` patterns),
       `noFallthroughCasesInSwitch`, `noImplicitOverride`. Fix what surfaces.
 - [x] **Storage version field has no migration story** — `src/app/storage.ts:13-21`

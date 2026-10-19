@@ -88,10 +88,12 @@ export function computeChart(snapshots: Snapshot[], width: number, height: numbe
     .filter((seconds) => seconds > 0 && seconds < end)
     .map((seconds) => ({ seconds, x: x(seconds) }));
   const periodLabels: PeriodLabel[] = [];
-  for (let i = 0; i < edges.length - 1; i++) {
+  edges.forEach((start, i) => {
+    const next = edges[i + 1];
+    if (next === undefined) return;
     const label = i < 4 ? String(i + 1) : `P${i - 3}`;
-    periodLabels.push({ label, x: x((edges[i] + edges[i + 1]) / 2) });
-  }
+    periodLabels.push({ label, x: x((start + next) / 2) });
+  });
 
   function series(team: Team): TeamSeries {
     const known: Point[] = [];
@@ -102,11 +104,13 @@ export function computeChart(snapshots: Snapshot[], width: number, height: numbe
     for (const s of snapshots) {
       known.push({ x: x(elapsedSeconds(s.period, s.remaining)), y: y(s[team]) });
     }
-    if (!prediction) return { known, prediction: null, finalLabel: null };
+    // known always holds at least one point here; the guard only narrows the type.
+    const from = known.at(-1);
+    if (!prediction || !from) return { known, prediction: null, finalLabel: null };
     return {
       known,
       prediction: {
-        from: known[known.length - 1],
+        from,
         to: { x: x(end), y: y(prediction[team]) },
       },
       finalLabel: roundScore(prediction[team]),
