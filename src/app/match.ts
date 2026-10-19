@@ -3,33 +3,59 @@ import { predict } from "../domain/predict";
 import type { Prediction, Snapshot } from "../domain/predict";
 import type { SnapshotInput } from "../domain/validate";
 
-export interface Match {
+export interface GameLocation {
+  lat: number;
+  lon: number;
+  place?: string;
+}
+
+export interface Game {
+  id: string;
+  /** ISO 8601 timestamp of when the game was created. */
+  createdAt: string;
+  homeName: string;
+  awayName: string;
+  location?: GameLocation;
   snapshots: Snapshot[];
 }
 
-export function emptyMatch(): Match {
-  return { snapshots: [] };
+/** Anything that carries snapshots; the helpers below accept a full Game too. */
+export interface HasSnapshots {
+  snapshots: Snapshot[];
 }
 
-export function addSnapshot(match: Match, snapshot: Snapshot): Match {
-  return { snapshots: [...match.snapshots, snapshot] };
+export const DEFAULT_HOME_NAME = "Home";
+export const DEFAULT_AWAY_NAME = "Away";
+
+export function newGame(id: string, now: Date): Game {
+  return {
+    id,
+    createdAt: now.toISOString(),
+    homeName: DEFAULT_HOME_NAME,
+    awayName: DEFAULT_AWAY_NAME,
+    snapshots: [],
+  };
 }
 
-export function removeLastSnapshot(match: Match): Match {
-  return { snapshots: match.snapshots.slice(0, -1) };
+export function addSnapshot<T extends HasSnapshots>(game: T, snapshot: Snapshot): T {
+  return { ...game, snapshots: [...game.snapshots, snapshot] };
 }
 
-export function lastSnapshot(match: Match): Snapshot | null {
-  return match.snapshots.at(-1) ?? null;
+export function removeLastSnapshot<T extends HasSnapshots>(game: T): T {
+  return { ...game, snapshots: game.snapshots.slice(0, -1) };
 }
 
-export function currentPrediction(match: Match): Prediction | null {
-  const last = lastSnapshot(match);
+export function lastSnapshot(game: HasSnapshots): Snapshot | null {
+  return game.snapshots.at(-1) ?? null;
+}
+
+export function currentPrediction(game: HasSnapshots): Prediction | null {
+  const last = lastSnapshot(game);
   return last ? predict(last) : null;
 }
 
-export function nextInputDefaults(match: Match): SnapshotInput {
-  const last = lastSnapshot(match);
+export function nextInputDefaults(game: HasSnapshots): SnapshotInput {
+  const last = lastSnapshot(game);
   if (!last) return { period: "1", clock: "10:00", home: "0", away: "0" };
   return {
     period: String(last.period),

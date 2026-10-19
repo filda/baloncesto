@@ -2,16 +2,26 @@ import { formatClock } from "../domain/clock";
 import { roundScore } from "../domain/predict";
 import { renderChart } from "../chart/render";
 import type { FieldError, Field, SnapshotInput } from "../domain/validate";
+import { formatDateTime } from "./format";
 import { currentPrediction, lastSnapshot } from "./match";
-import type { Match } from "./match";
+import type { Game } from "./match";
 
 export interface ViewHandlers {
   onSubmit(input: SnapshotInput): void;
   onRemoveLast(): void;
+  onNew(): void;
+  onHistory(): void;
+  onBack(): void;
+  onOpen(id: string): void;
+  onDelete(id: string): void;
 }
 
+export type Screen = "sheet" | "history";
+
 export interface View {
-  render(match: Match, errors: FieldError[]): void;
+  render(game: Game, errors: FieldError[]): void;
+  renderHistory(games: Game[]): void;
+  showScreen(screen: Screen): void;
   setInput(input: SnapshotInput): void;
   focusHome(): void;
 }
@@ -48,7 +58,18 @@ function scoreText(value: number | undefined): string {
 
 export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   const header = el("header", "sheet-head");
-  header.append(el("h1", "printed", "Baloncesto · scoresheet"));
+  const nav = el("nav", "sheet-nav");
+  const newButton = el("button", "nav-button", "New");
+  newButton.type = "button";
+  newButton.id = "btn-new";
+  const historyButton = el("button", "nav-button", "History");
+  historyButton.type = "button";
+  historyButton.id = "btn-history";
+  const backButton = el("button", "nav-button", "Back");
+  backButton.type = "button";
+  backButton.id = "btn-back";
+  nav.append(newButton, historyButton, backButton);
+  header.append(el("h1", "printed", "Baloncesto · scoresheet"), nav);
 
   const scoreline = el("section", "scoreline");
   scoreline.setAttribute("aria-label", "Current score");
@@ -116,8 +137,14 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   table.append(caption, head, body);
   log.append(table);
 
+  const history = el("section", "history");
+  history.id = "history";
+  history.setAttribute("aria-label", "Saved games");
+  history.hidden = true;
+
+  const sheet = [scoreline, estimate, chart, form, log];
   const footer = document.querySelector("footer");
-  root.replaceChildren(header, scoreline, estimate, chart, form, log);
+  root.replaceChildren(header, ...sheet, history);
   if (footer) root.append(footer);
 
   function readInput(): SnapshotInput {
@@ -134,18 +161,21 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     handlers.onSubmit(readInput());
   });
   remove.addEventListener("click", () => handlers.onRemoveLast());
+  newButton.addEventListener("click", () => handlers.onNew());
+  historyButton.addEventListener("click", () => handlers.onHistory());
+  backButton.addEventListener("click", () => handlers.onBack());
 
-  let current: Match = { snapshots: [] };
-  new ResizeObserver(() => renderChart(chart, current.snapshots)).observe(chart);
+  let current: Game | null = null;
+  new ResizeObserver(() => renderChart(chart, current?.snapshots ?? [])).observe(chart);
 
-  function render(match: Match, errors: FieldError[]): void {
-    current = match;
-    renderChart(chart, match.snapshots);
-    const last = lastSnapshot(match);
+  function render(game: Game, errors: FieldError[]): void {
+    current = game;
+    renderChart(chart, game.snapshots);
+    const last = lastSnapshot(game);
     homeScore.textContent = scoreText(last?.home);
     awayScore.textContent = scoreText(last?.away);
 
-    const prediction = currentPrediction(match);
+    const prediction = currentPrediction(game);
     estimateHome.textContent = prediction ? String(roundScore(prediction.home)) : "—";
     estimateAway.textContent = prediction ? String(roundScore(prediction.away)) : "—";
 
@@ -163,9 +193,9 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
       }
     }
 
-    remove.disabled = match.snapshots.length === 0;
+    remove.disabled = game.snapshots.length === 0;
 
-    const rows = match.snapshots.map((snapshot, index) => {
+    const rows = game.snapshots.map((snapshot, index) => {
       const tr = el("tr");
       tr.append(
         el("td", "printed", String(index + 1)),
@@ -180,6 +210,54 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     log.hidden = rows.length === 0;
   }
 
+  function renderHistory(games: Game[]): void {
+    if (games.length === 0) {
+      history.replaceChildren(el("p", "printed empty", "No saved games"));
+      return;
+    }
+    const rows = games.map((game) => {
+      const last = lastSnapshot(game);
+      const item = el("article", "history-row");
+      item.dataset.gameId = game.id;
+      const meta = el("p", "history-meta");
+      meta.append(
+        el("span", "printed history-date", formatDateTime(game.createdAt)),
+        el("span", "printed history-count", `${game.snapshots.length} entries`),
+      );
+      const teams = el("p", "history-teams");
+      teams.append(
+        el("span", "printed history-names", `${game.homeName} – ${game.awayName}`),
+        el("span", "hand history-score"),
+      );
+      const score = teams.lastElementChild as HTMLElement;
+      score.append(
+        el("span", "home", scoreText(last?.home)),
+        " : ",
+        el("span", "away", scoreText(last?.away)),
+      );
+      const buttons = el("div", "actions");
+      const open = el("button", "history-open primary", "Open");
+      open.type = "button";
+      open.addEventListener("click", () => handlers.onOpen(game.id));
+      const del = el("button", "history-delete secondary", "Delete");
+      del.type = "button";
+      del.addEventListener("click", () => handlers.onDelete(game.id));
+      buttons.append(open, del);
+      item.append(meta, teams, buttons);
+      return item;
+    });
+    history.replaceChildren(...rows);
+  }
+
+  function showScreen(screen: Screen): void {
+    const onHistory = screen === "history";
+    for (const node of sheet) node.hidden = onHistory;
+    history.hidden = !onHistory;
+    newButton.hidden = onHistory;
+    historyButton.hidden = onHistory;
+    backButton.hidden = !onHistory;
+  }
+
   function setInput(values: SnapshotInput): void {
     inputs.period.value = values.period;
     inputs.clock.value = values.clock;
@@ -192,5 +270,7 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     inputs.home.select();
   }
 
-  return { render, setInput, focusHome };
+  showScreen("sheet");
+
+  return { render, renderHistory, showScreen, setInput, focusHome };
 }

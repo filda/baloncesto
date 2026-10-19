@@ -71,8 +71,8 @@ footer {
 
 .sheet-head h1 {
   margin: 0;
-  font-size: 0.85rem;
-  letter-spacing: 0.22em;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
 }
 
 .scoreline {
@@ -268,4 +268,72 @@ footer {
   padding: 8px 0 16px;
   font-size: 0.65rem;
   opacity: 0.7;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sheet-nav {
+  display: flex;
+}
+
+.nav-button {
+  flex: none;
+  min-height: 40px;
+  padding: 0 10px;
+  border-left: 1px solid var(--rule);
+  font-size: 0.7rem;
+}
+
+.history {
+  margin: 12px 0;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.history .empty {
+  margin: 0;
+  padding: 24px 12px;
+  text-align: center;
+}
+
+.history-row {
+  border-bottom: 1px solid var(--rule);
+}
+
+.history-row:last-child {
+  border-bottom: 0;
+}
+
+.history-meta,
+.history-teams {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 8px 0;
+}
+
+.history-names {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.history-score {
+  flex: none;
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.history-row .actions button {
+  min-height: 44px;
 }
