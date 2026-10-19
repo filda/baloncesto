@@ -10,8 +10,9 @@ export interface SnapshotInput {
 
 export type Field = keyof SnapshotInput;
 
+/** `"form"` marks an error that belongs to the whole entry, not to a single field. */
 export interface FieldError {
-  field: Field;
+  field: Field | "form";
   message: string;
 }
 
@@ -90,6 +91,14 @@ export function validateSnapshot(input: SnapshotInput, previous?: Snapshot): Val
       errors.push({ field: "away", message: "Score cannot go down." });
     }
     if (errors.length > 0) return { ok: false, errors };
+    if (
+      snapshot.period === previous.period &&
+      snapshot.remaining === previous.remaining &&
+      snapshot.home === previous.home &&
+      snapshot.away === previous.away
+    ) {
+      return { ok: false, errors: [{ field: "form", message: "Same as the previous entry." }] };
+    }
   }
 
   return { ok: true, snapshot };

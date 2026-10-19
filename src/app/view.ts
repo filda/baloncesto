@@ -163,7 +163,14 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   submit.type = "submit";
   submit.id = "btn-record";
   actions.append(submit);
-  form.append(row, actions);
+  const formError = el("p", "error form-error");
+  formError.id = "form-error";
+  formError.setAttribute("role", "alert");
+  formError.setAttribute("aria-live", "assertive");
+  form.append(row, actions, formError);
+  form.addEventListener("input", () => {
+    formError.textContent = "";
+  });
 
   // Select the existing text on focus so typing overwrites it. On touch devices the tap's
   // mouseup/click would collapse the selection again, so select once more after the tap and
@@ -319,6 +326,8 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     estimateHome.textContent = prediction ? String(roundScore(prediction.home)) : "—";
     estimateAway.textContent = prediction ? String(roundScore(prediction.away)) : "";
     estimateColon.hidden = estimateAway.hidden = !prediction;
+
+    formError.textContent = errors.find((e) => e.field === "form")?.message ?? "";
 
     for (const spec of FIELDS) {
       const message = errors.find((e) => e.field === spec.field)?.message ?? "";

@@ -3,6 +3,7 @@
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 const config = {
   testRunner: "vitest",
+  ignorePatterns: ["dist", "reports", ".stryker-tmp"],
   checkers: ["typescript"],
   mutate: [
     "src/domain/**/*.ts",

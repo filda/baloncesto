@@ -8,6 +8,7 @@ const CLOCK_MSG = "Enter time as m:ss.";
 const SCORE_MSG = "Score must be a whole number 0–300.";
 const BACK_MSG = "Time cannot go back from the previous entry.";
 const DROP_MSG = "Score cannot go down.";
+const SAME_MSG = "Same as the previous entry.";
 
 function input(patch: Partial<SnapshotInput>): SnapshotInput {
   return { ...valid, ...patch };
@@ -137,8 +138,31 @@ describe("validateSnapshot", () => {
   describe("against previous snapshot", () => {
     const previous = { period: 2, remaining: 330, home: 30, away: 24 };
 
-    it("accepts equal elapsed time and equal scores", () => {
-      expect(validateSnapshot(valid, previous)).toEqual({ ok: true, snapshot: previous });
+    it("rejects a snapshot identical to the previous one", () => {
+      expect(validateSnapshot(valid, previous)).toEqual({
+        ok: false,
+        errors: [{ field: "form", message: SAME_MSG }],
+      });
+    });
+
+    it("still counts as identical when the input has extra whitespace", () => {
+      expect(
+        validateSnapshot({ period: "2 ", clock: " 5:30", home: "30	", away: " 24" }, previous),
+      ).toEqual({ ok: false, errors: [{ field: "form", message: SAME_MSG }] });
+    });
+
+    it("accepts the same time with a different score", () => {
+      expect(validateSnapshot(input({ home: "31" }), previous)).toMatchObject({ ok: true });
+      expect(validateSnapshot(input({ away: "25" }), previous)).toMatchObject({ ok: true });
+    });
+
+    it("accepts the same scores with a later time", () => {
+      expect(validateSnapshot(input({ clock: "5:29" }), previous)).toMatchObject({ ok: true });
+      expect(validateSnapshot(input({ period: "3" }), previous)).toMatchObject({ ok: true });
+    });
+
+    it("accepts an identical snapshot when there is no previous entry", () => {
+      expect(validateSnapshot(valid)).toMatchObject({ ok: true });
     });
 
     it("accepts later time and higher scores", () => {
