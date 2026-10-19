@@ -105,7 +105,7 @@ also the largest and least structured file.
 
 ## P3 — Tests, tooling, CI, docs
 
-- [ ] **The UI layer has zero coverage** — `src/app/view.ts`, `src/main.ts`,
+- [x] **The UI layer has zero coverage** — `src/app/view.ts`, `src/main.ts`,
       `src/app/update-banner.ts`, `src/chart/render.ts` (render path) are untested; vitest runs in
       `node` environment so DOM tests are impossible today. Add the `happy-dom` environment (or
       `jsdom`) and tests for: render/log/errors wiring, submit flow, screen switching, the clock

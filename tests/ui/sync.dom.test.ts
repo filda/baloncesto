@@ -71,9 +71,11 @@ describe("watchStorage", () => {
 
   it("does nothing without storage", () => {
     const onWrite = vi.fn();
-    watchStorage(window, null, onWrite)();
+    const stop = watchStorage(window, null, onWrite);
     fireStorage();
+    window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY }));
     expect(onWrite).not.toHaveBeenCalled();
+    expect(() => stop()).not.toThrow();
   });
 });
 

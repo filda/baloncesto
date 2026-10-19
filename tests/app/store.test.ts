@@ -180,6 +180,14 @@ describe("startGame / switchTo", () => {
     expect(loadState(storage).games.map((g) => g.id)).toEqual(["id-1", "id-2"]);
   });
 
+  it("keeps the stored order when switching to the current empty game", () => {
+    const storage = new FakeStorage();
+    seed(storage, [newGame("first", NOW), played("second")], "first");
+    const { store } = makeStore(storage);
+    store.switchTo(store.game);
+    expect(store.state.games.map((g) => g.id)).toEqual(["first", "second"]);
+  });
+
   it("does not drop the game when switching to itself", () => {
     const { store } = makeStore();
     store.persist();

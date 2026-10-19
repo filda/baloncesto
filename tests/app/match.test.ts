@@ -252,3 +252,28 @@ describe("draftNewGame", () => {
     expect(INVALID_DATE_MESSAGE).toBe("Enter a valid date and time.");
   });
 });
+
+describe("mutation regressions", () => {
+  it("trims before truncating a team name", () => {
+    expect(normalizeTeamName(`${" ".repeat(30)}Lakers`, "Home")).toBe("Lakers");
+  });
+
+  it("needs both coordinates to store a location with coordinates", () => {
+    const game = createGame({ id: "g", createdAt: now, homeName: "", awayName: "", lon: 16.6 });
+    expect(game.location).toBeUndefined();
+    const lonOnly = createGame({
+      id: "g",
+      createdAt: now,
+      homeName: "",
+      awayName: "",
+      lon: 16.6,
+      place: "Gym",
+    });
+    expect(lonOnly.location).toEqual({ place: "Gym" });
+  });
+
+  it("returns the last of several snapshots", () => {
+    const c = { period: 3, remaining: 200, home: 40, away: 33 };
+    expect(lastSnapshot({ snapshots: [a, b, c] })).toBe(c);
+  });
+});
