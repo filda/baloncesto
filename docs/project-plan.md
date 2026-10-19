@@ -57,7 +57,7 @@ Visual direction: **paper scoresheet**. Off-white paper, a grid like an official
 - The current score is not shown separately — it is on the scoreboard.
 - Entry form at the top: 4 inputs (period, time, home score, away score) + a full-width button to record the snapshot.
   - Focusing an input selects its text, so typing overwrites it.
-  - Time is typed as digits only, the colon is inserted automatically: the first digit is minutes, 4 digits mean two-digit minutes (`530` → `5:30`, `1000` → `10:00`).
+  - Time is typed as digits only, the colon is inserted automatically: the first digit is minutes, 4 digits mean two-digit minutes (`530` → `5:30`, `1000` → `10:00`); an incomplete value is completed on confirm (`44` → `4:40`, `4` → `4:00`).
 - Input validation: period 1–9, time within the period length (10:00, overtime 5:00), scores 0–300 and not lower than in the previous snapshot, time not going back; a snapshot identical to the previous one is rejected.
 - The chart takes most of the screen, each team has its own curve in a fixed colour (blue and red ink).
 - Known data in a saturated colour, prediction lighter (dashed).

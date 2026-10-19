@@ -10,3 +10,14 @@ export function formatClockInput(raw: string): string {
   const minutesLength = digits.length === 4 ? 2 : 1;
   return `${digits.slice(0, minutesLength)}:${digits.slice(minutesLength)}`;
 }
+
+/**
+ * Completes an unfinished time on confirm: one seconds digit gets a trailing zero ("4:4" →
+ * "4:40") and a lone digit becomes whole minutes ("4" → "4:00"). Everything else is returned
+ * unchanged, so validation can report it.
+ */
+export function completeClockInput(value: string): string {
+  if (/^\d{1,2}:\d$/.test(value)) return `${value}0`;
+  if (/^\d$/.test(value)) return `${value}:00`;
+  return value;
+}

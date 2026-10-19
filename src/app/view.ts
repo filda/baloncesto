@@ -1,5 +1,5 @@
 import { formatClock } from "../domain/clock";
-import { formatClockInput } from "../domain/clock-input";
+import { completeClockInput, formatClockInput } from "../domain/clock-input";
 import { roundScore } from "../domain/predict";
 import { renderChart } from "../chart/render";
 import type { FieldError, Field, SnapshotInput } from "../domain/validate";
@@ -200,6 +200,11 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     inputs.clock.setSelectionRange(formatted.length, formatted.length);
   });
 
+  function completeClock(): void {
+    inputs.clock.value = completeClockInput(inputs.clock.value);
+  }
+  inputs.clock.addEventListener("blur", completeClock);
+
   const log = el("section", "log");
   const table = el("table");
   const caption = el("caption", "printed", "Log");
@@ -302,6 +307,7 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    completeClock();
     handlers.onSubmit(readInput());
   });
   newButton.addEventListener("click", () => handlers.onNew());

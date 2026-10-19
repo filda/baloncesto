@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseClock } from "../../src/domain/clock";
-import { formatClockInput } from "../../src/domain/clock-input";
+import { completeClockInput, formatClockInput } from "../../src/domain/clock-input";
 
 describe("formatClockInput", () => {
   it.each([
@@ -44,5 +44,54 @@ describe("formatClockInput", () => {
   it("does not treat incomplete values as valid", () => {
     expect(parseClock(formatClockInput("5"))).toBeNull();
     expect(parseClock(formatClockInput("53"))).toBeNull();
+  });
+});
+
+describe("completeClockInput", () => {
+  it.each([
+    ["", ""],
+    ["4", "4:00"],
+    ["0", "0:00"],
+    ["9", "9:00"],
+    ["4:4", "4:40"],
+    ["0:0", "0:00"],
+    ["10:5", "10:50"],
+    ["5:30", "5:30"],
+    ["10:00", "10:00"],
+    ["00:07", "00:07"],
+    ["44", "44"],
+    ["123", "123"],
+    ["4:", "4:"],
+    [":4", ":4"],
+    ["4:444", "4:444"],
+    ["100:5", "100:5"],
+    ["abc", "abc"],
+    [" 4", " 4"],
+    ["4 ", "4 "],
+    ["4:4 ", "4:4 "],
+    ["4:x", "4:x"],
+    ["x:4", "x:4"],
+  ])("completes %j to %j", (value, expected) => {
+    expect(completeClockInput(value)).toBe(expected);
+  });
+
+  it("completes typed digits to a value parseClock accepts", () => {
+    expect(parseClock(completeClockInput(formatClockInput("44")))).toBe(280);
+    expect(parseClock(completeClockInput(formatClockInput("4")))).toBe(240);
+    expect(parseClock(completeClockInput(formatClockInput("1")))).toBe(60);
+  });
+
+  it("always yields a parsable time when the typed digits form a valid time", () => {
+    for (let length = 1; length <= 4; length++) {
+      for (let n = 0; n < 10 ** length; n++) {
+        const digits = String(n).padStart(length, "0");
+        const formatted = formatClockInput(digits);
+        const completed = completeClockInput(formatted);
+        const [minutes = "", rest = ""] = formatted.split(":");
+        const seconds = formatted.includes(":") ? (rest.length === 1 ? rest + "0" : rest) : "00";
+        if (Number(seconds) >= 60 || minutes === "") continue;
+        expect(parseClock(completed)).toBe(Number(minutes) * 60 + Number(seconds));
+      }
+    }
   });
 });
