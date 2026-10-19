@@ -1,5 +1,6 @@
 import { formatClock } from "../domain/clock";
 import { roundScore } from "../domain/predict";
+import { renderChart } from "../chart/render";
 import type { FieldError, Field, SnapshotInput } from "../domain/validate";
 import { currentPrediction, lastSnapshot } from "./match";
 import type { Match } from "./match";
@@ -68,7 +69,6 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   const chart = el("section", "chart");
   chart.id = "chart";
   chart.setAttribute("aria-label", "Graf");
-  chart.append(el("span", "printed", "graf — milník 4"));
 
   const form = el("form", "entry");
   form.noValidate = true;
@@ -135,7 +135,12 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   });
   remove.addEventListener("click", () => handlers.onRemoveLast());
 
+  let current: Match = { snapshots: [] };
+  new ResizeObserver(() => renderChart(chart, current.snapshots)).observe(chart);
+
   function render(match: Match, errors: FieldError[]): void {
+    current = match;
+    renderChart(chart, match.snapshots);
     const last = lastSnapshot(match);
     homeScore.textContent = scoreText(last?.home);
     awayScore.textContent = scoreText(last?.away);
