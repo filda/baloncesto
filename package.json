@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint src tests --deny-warnings",
+    "lint": "oxlint src tests vite.config.ts vitest.config.ts stryker.config.mjs pwa-assets.config.ts --deny-warnings",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "vitest run",
@@ -36,5 +36,8 @@
   },
   "overrides": {
     "qs": "^6.16.0"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

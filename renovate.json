@@ -1,0 +1,54 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits"],
+  "timezone": "Europe/Prague",
+  "schedule": ["before 6am on Monday"],
+  "labels": ["dependencies"],
+  "automerge": false,
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 0,
+  "rangeStrategy": "bump",
+  "rebaseWhen": "conflicted",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"]
+  },
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "schedule": ["at any time"],
+    "minimumReleaseAge": "0 days"
+  },
+  "packageRules": [
+    {
+      "description": "Group all non-major devDependency updates into one PR per week",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "dev dependencies (non-major)"
+    },
+    {
+      "description": "Stryker packages must move together",
+      "matchPackageNames": ["/^@stryker-mutator//"],
+      "groupName": "stryker"
+    },
+    {
+      "description": "Vitest core and integrations move together",
+      "matchPackageNames": ["vitest", "/^@vitest//"],
+      "groupName": "vitest"
+    },
+    {
+      "description": "Bundle type definitions",
+      "matchPackageNames": ["/^@types//"],
+      "groupName": "type definitions"
+    },
+    {
+      "description": "Font packages move together",
+      "matchPackageNames": ["/^@fontsource//"],
+      "groupName": "fontsource"
+    },
+    {
+      "description": "Major bumps need explicit approval via the dashboard issue",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}
