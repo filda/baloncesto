@@ -1,4 +1,5 @@
 import type { Snapshot } from "../domain/predict";
+import { DEFAULT_AWAY_NAME, DEFAULT_HOME_NAME } from "../app/match";
 import { computeChart } from "./geometry";
 import type { Point, TeamSeries } from "./geometry";
 
@@ -31,7 +32,7 @@ export function chartLabel(
   snapshots: Snapshot[],
   home: TeamSeries,
   away: TeamSeries,
-  names: TeamNames = { home: "Home", away: "Away" },
+  names: TeamNames = { home: DEFAULT_HOME_NAME, away: DEFAULT_AWAY_NAME },
 ): string {
   const last = snapshots.at(-1);
   if (!last) return "Score chart: no entries yet";

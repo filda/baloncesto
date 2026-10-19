@@ -178,8 +178,14 @@ export function browserGetPosition(): Promise<Coords> {
   });
 }
 
-export async function browserFetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
+export const FETCH_TIMEOUT_MS = 8000;
+
+/** A hanging request is aborted after the timeout so the lookup ends as "place-unavailable". */
+export async function browserFetchJson(
+  url: string,
+  signal: AbortSignal = AbortSignal.timeout(FETCH_TIMEOUT_MS),
+): Promise<unknown> {
+  const response = await fetch(url, { headers: { Accept: "application/json" }, signal });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }

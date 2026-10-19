@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { newGame } from "../../src/app/match";
 import type { Game } from "../../src/app/match";
 import {
@@ -8,6 +8,8 @@ import {
   findGame,
   listHistory,
   loadState,
+  loadStateWithReport,
+  migrate,
   saveState,
   setCurrent,
   upsertGame,
@@ -119,6 +121,99 @@ describe("loadState / saveState", () => {
       ],
     };
     expect(loadState(stored(state)).games).toEqual([good]);
+  });
+
+  it.each([
+    ["period 0", { ...snap, period: 0 }],
+    ["period 10", { ...snap, period: 10 }],
+    ["negative remaining", { ...snap, remaining: -1 }],
+    ["remaining above regulation length", { ...snap, remaining: 601 }],
+    ["remaining above overtime length", { ...snap, period: 5, remaining: 301 }],
+    ["negative home", { ...snap, home: -1 }],
+    ["negative away", { ...snap, away: -1 }],
+    ["home above 300", { ...snap, home: 301 }],
+    ["away above 300", { ...snap, away: 301 }],
+  ])("drops a game with an out-of-domain snapshot: %s", (_name, bad) => {
+    const good = game("good", "2026-01-01T10:00:00.000Z");
+    const state = {
+      version: 1,
+      currentId: null,
+      games: [good, game("bad", "2026-01-02T10:00:00.000Z", [bad])],
+    };
+    expect(loadState(stored(state)).games).toEqual([good]);
+  });
+
+  it("accepts boundary snapshot values", () => {
+    const edge = game("edge", "2026-01-01T10:00:00.000Z", [
+      { period: 1, remaining: 600, home: 0, away: 0 },
+      { period: 5, remaining: 0, home: 300, away: 300 },
+      { period: 9, remaining: 0, home: 300, away: 300 },
+    ]);
+    expect(loadState(stored({ version: 1, currentId: null, games: [edge] })).games).toEqual([edge]);
+  });
+
+  it.each([
+    ["time going back", [snap, { ...snap, remaining: 301 }]],
+    ["period going back", [{ ...snap, period: 2 }, snap]],
+    ["home score dropping", [snap, { ...snap, remaining: 200, home: 9 }]],
+    ["away score dropping", [snap, { ...snap, remaining: 200, away: 7 }]],
+  ])("drops a chronologically inconsistent game: %s", (_name, snapshots) => {
+    const good = game("good", "2026-01-01T10:00:00.000Z");
+    const bad = game("bad", "2026-01-02T10:00:00.000Z", snapshots);
+    expect(loadState(stored({ version: 1, currentId: null, games: [good, bad] })).games).toEqual([
+      good,
+    ]);
+  });
+
+  it("accepts equal consecutive snapshots and later ones", () => {
+    const ok = game("ok", "2026-01-01T10:00:00.000Z", [snap, snap, { ...snap, remaining: 100 }]);
+    expect(loadState(stored({ version: 1, currentId: null, games: [ok] })).games).toEqual([ok]);
+  });
+
+  it.each(["", "garbage", "2026-13-45"])("drops a game with invalid createdAt %j", (createdAt) => {
+    const good = game("good", "2026-01-01T10:00:00.000Z");
+    const state = { version: 1, currentId: null, games: [good, { ...good, id: "x", createdAt }] };
+    expect(loadState(stored(state)).games).toEqual([good]);
+  });
+
+  it("reports and warns about dropped games", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const good = game("good", "2026-01-01T10:00:00.000Z");
+      const state = { version: 1, currentId: null, games: [good, { ...good, id: 5 }, "x"] };
+      const report = loadStateWithReport(stored(state));
+      expect(report.dropped).toBe(2);
+      expect(report.state.games).toEqual([good]);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith("Dropped 2 invalid stored game(s)");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("reports zero dropped without warning for clean or empty data", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const good = game("good", "2026-01-01T10:00:00.000Z");
+      expect(
+        loadStateWithReport(stored({ version: 1, currentId: null, games: [good] })).dropped,
+      ).toBe(0);
+      expect(loadStateWithReport(new FakeStorage())).toEqual({ state: emptyState(), dropped: 0 });
+      expect(loadStateWithReport(null)).toEqual({ state: emptyState(), dropped: 0 });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("migrate keeps version 1 and rejects everything else", () => {
+    const v1 = { version: 1, currentId: null, games: [] };
+    expect(migrate(v1)).toBe(v1);
+    expect(migrate({ version: 2, games: [] })).toBeNull();
+    expect(migrate({ games: [] })).toBeNull();
+    expect(migrate(null)).toBeNull();
+    expect(migrate([1])).toBeNull();
+    expect(migrate("x")).toBeNull();
   });
 
   it("resets currentId when it points to no valid game", () => {

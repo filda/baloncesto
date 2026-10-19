@@ -36,6 +36,13 @@ describe("game helpers", () => {
   it("starts without a last snapshot or prediction", () => {
     expect(lastSnapshot(empty())).toBeNull();
     expect(currentPrediction(empty())).toBeNull();
+    for (const bad of [
+      { period: 0, remaining: 100, home: 1, away: 1 },
+      { period: 1, remaining: -1, home: 1, away: 1 },
+      { period: 1, remaining: 601, home: 1, away: 1 },
+    ]) {
+      expect(currentPrediction({ snapshots: [bad] })).toBeNull();
+    }
   });
 
   it("adds snapshots immutably and keeps other fields", () => {

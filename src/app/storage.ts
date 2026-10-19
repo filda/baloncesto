@@ -1,4 +1,5 @@
 import type { Game, GameLocation } from "./match";
+import { elapsedSeconds, periodLength } from "../domain/clock";
 import type { Snapshot } from "../domain/predict";
 
 export const STORAGE_KEY = "baloncesto:v1";
@@ -28,14 +29,38 @@ function isInt(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value);
 }
 
+const MAX_PERIOD = 9;
+const MAX_SCORE = 300;
+
 function isSnapshot(value: unknown): value is Snapshot {
   return (
     isRecord(value) &&
     isInt(value.period) &&
+    value.period >= 1 &&
+    value.period <= MAX_PERIOD &&
     isInt(value.remaining) &&
+    value.remaining >= 0 &&
+    value.remaining <= periodLength(value.period) &&
     isInt(value.home) &&
-    isInt(value.away)
+    value.home >= 0 &&
+    value.home <= MAX_SCORE &&
+    isInt(value.away) &&
+    value.away >= 0 &&
+    value.away <= MAX_SCORE
   );
+}
+
+/** Elapsed game time and both scores never decrease from one snapshot to the next. */
+function isChronological(snapshots: Snapshot[]): boolean {
+  return snapshots.every((s, i) => {
+    const prev = snapshots[i - 1];
+    return (
+      prev === undefined ||
+      (elapsedSeconds(s.period, s.remaining) >= elapsedSeconds(prev.period, prev.remaining) &&
+        s.home >= prev.home &&
+        s.away >= prev.away)
+    );
+  });
 }
 
 function isLocation(value: unknown): value is GameLocation {
@@ -59,31 +84,56 @@ function isGame(value: unknown): value is Game {
     typeof value.id === "string" &&
     value.id !== "" &&
     typeof value.createdAt === "string" &&
+    !Number.isNaN(Date.parse(value.createdAt)) &&
     typeof value.homeName === "string" &&
     typeof value.awayName === "string" &&
     (value.location === undefined || isLocation(value.location)) &&
     Array.isArray(value.snapshots) &&
-    value.snapshots.every(isSnapshot)
+    value.snapshots.every(isSnapshot) &&
+    isChronological(value.snapshots as Snapshot[])
   );
 }
 
-/** Never throws: anything unreadable yields the empty state. */
-export function loadState(storage: KeyValueStorage | null): AppState {
-  if (!storage) return emptyState();
+/**
+ * Migration policy: the stored `version` is the schema version. To change the schema, bump the
+ * version (and the storage key), add a step v(n) -> v(n+1) here and chain the steps; never mutate
+ * old keys in place. Unknown (e.g. newer) versions yield `null`, which loads as the empty state.
+ */
+export function migrate(raw: unknown): unknown {
+  if (isRecord(raw) && raw.version === 1) return raw;
+  return null;
+}
+
+export interface LoadReport {
+  state: AppState;
+  /** Number of stored games rejected by validation. */
+  dropped: number;
+}
+
+/** Never throws: anything unreadable yields the empty state. Warns when games were dropped. */
+export function loadStateWithReport(storage: KeyValueStorage | null): LoadReport {
+  const empty = { state: emptyState(), dropped: 0 };
+  if (!storage) return empty;
   try {
     const raw = storage.getItem(STORAGE_KEY);
-    if (raw === null) return emptyState();
-    const data: unknown = JSON.parse(raw);
-    if (!isRecord(data) || data.version !== 1 || !Array.isArray(data.games)) return emptyState();
+    if (raw === null) return empty;
+    const data = migrate(JSON.parse(raw));
+    if (!isRecord(data) || !Array.isArray(data.games)) return empty;
     const games = data.games.filter(isGame);
+    const dropped = data.games.length - games.length;
+    if (dropped > 0) console.warn(`Dropped ${dropped} invalid stored game(s)`);
     const currentId =
       typeof data.currentId === "string" && games.some((g) => g.id === data.currentId)
         ? data.currentId
         : null;
-    return { version: 1, currentId, games };
+    return { state: { version: 1, currentId, games }, dropped };
   } catch {
-    return emptyState();
+    return empty;
   }
+}
+
+export function loadState(storage: KeyValueStorage | null): AppState {
+  return loadStateWithReport(storage).state;
 }
 
 /** Returns false when nothing could be written (no storage, quota, SecurityError). */

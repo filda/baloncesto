@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   GEOCACHE_KEY,
+  FETCH_TIMEOUT_MS,
   GEOCACHE_MAX_ENTRIES,
   STATUS_TEXT,
   browserFetchJson,
@@ -308,7 +309,59 @@ describe("browser wrappers", () => {
     await expect(browserFetchJson("https://example.test/x")).resolves.toEqual({ a: 1 });
     expect(fetchMock).toHaveBeenCalledWith("https://example.test/x", {
       headers: { Accept: "application/json" },
+      signal: expect.any(AbortSignal),
     });
+  });
+
+  it("passes a custom abort signal through to fetch", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(1) }));
+    vi.stubGlobal("fetch", fetchMock);
+    const signal = new AbortController().signal;
+    await browserFetchJson("https://example.test/x", signal);
+    expect(fetchMock).toHaveBeenCalledWith("https://example.test/x", {
+      headers: { Accept: "application/json" },
+      signal,
+    });
+  });
+
+  it("uses an 8 s default timeout", () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    vi.stubGlobal("fetch", () => Promise.resolve({ ok: true, json: () => Promise.resolve(1) }));
+    void browserFetchJson("https://example.test/x");
+    expect(FETCH_TIMEOUT_MS).toBe(8000);
+    expect(timeout).toHaveBeenCalledWith(8000);
+    timeout.mockRestore();
+  });
+
+  it("aborts a hanging request and locate ends as place-unavailable", async () => {
+    // AbortSignal.timeout uses a native timer; fire it right away instead of waiting 8 s.
+    const controller = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    try {
+      vi.stubGlobal(
+        "fetch",
+        (_url: string, init: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener("abort", () => reject(init.signal.reason));
+          }),
+      );
+      const updates: LocateUpdate[] = [];
+      const done = locate(
+        {
+          getPosition: () => Promise.resolve({ lat: 1, lon: 2 }),
+          fetchJson: (url) => browserFetchJson(url),
+          storage: null,
+        },
+        (u) => updates.push(u),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      controller.abort(new Error("timeout"));
+      await done;
+      expect(timeout).toHaveBeenCalledWith(FETCH_TIMEOUT_MS);
+      expect(updates.at(-1)).toEqual({ status: "place-unavailable", coords: { lat: 1, lon: 2 } });
+    } finally {
+      timeout.mockRestore();
+    }
   });
 
   it("rejects on a non-OK response without reading the body", async () => {

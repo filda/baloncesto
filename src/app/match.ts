@@ -119,9 +119,15 @@ export function lastSnapshot(game: HasSnapshots): Snapshot | null {
   return game.snapshots.at(-1) ?? null;
 }
 
+/** Never throws: an out-of-domain snapshot (e.g. from corrupt data) yields no prediction. */
 export function currentPrediction(game: HasSnapshots): Prediction | null {
   const last = lastSnapshot(game);
-  return last ? predict(last) : null;
+  if (!last) return null;
+  try {
+    return predict(last);
+  } catch {
+    return null;
+  }
 }
 
 export function nextInputDefaults(game: HasSnapshots): SnapshotInput {

@@ -1,4 +1,4 @@
-import { elapsedSeconds, formatClock, parseClock, periodLength } from "./clock";
+import { REGULATION_PERIODS, elapsedSeconds, formatClock, parseClock, periodLength } from "./clock";
 import type { Snapshot } from "./predict";
 
 export interface SnapshotInput {
@@ -22,12 +22,11 @@ export type ValidationResult =
 
 const MAX_PERIOD = 9;
 const MAX_SCORE = 300;
-const REGULATION_PERIODS = 4;
 
 function parsePeriod(value: string): number | null {
-  if (!/^\d+$/.test(value)) return null;
+  if (!/^[1-9]$/.test(value)) return null;
   const period = Number(value);
-  return period >= 1 && period <= MAX_PERIOD ? period : null;
+  return period <= MAX_PERIOD ? period : null;
 }
 
 function parseScore(value: string): number | null {

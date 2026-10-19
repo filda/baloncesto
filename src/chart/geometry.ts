@@ -1,12 +1,20 @@
-import { elapsedSeconds, gameEndSeconds } from "../domain/clock";
+import {
+  OVERTIME_LENGTH,
+  REGULATION_LENGTH,
+  REGULATION_PERIODS,
+  elapsedSeconds,
+  gameEndSeconds,
+} from "../domain/clock";
 import { predict, roundScore } from "../domain/predict";
 import type { Snapshot } from "../domain/predict";
 
 export const PADDING = { top: 22, right: 38, bottom: 10, left: 30 } as const;
 
-const REGULATION_END = 2400;
-const PERIOD_BOUNDS = [0, 600, 1200, 1800, 2400];
-const OVERTIME_LENGTH = 300;
+const REGULATION_END = REGULATION_PERIODS * REGULATION_LENGTH;
+const PERIOD_BOUNDS = Array.from(
+  { length: REGULATION_PERIODS + 1 },
+  (_, i) => i * REGULATION_LENGTH,
+);
 
 export interface Point {
   x: number;

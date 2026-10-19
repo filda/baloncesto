@@ -1,6 +1,6 @@
-const REGULATION_PERIODS = 4;
-const REGULATION_LENGTH = 600;
-const OVERTIME_LENGTH = 300;
+export const REGULATION_PERIODS = 4;
+export const REGULATION_LENGTH = 600;
+export const OVERTIME_LENGTH = 300;
 
 function assertPeriod(period: number): void {
   if (!Number.isInteger(period) || period < 1) {

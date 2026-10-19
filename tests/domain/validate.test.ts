@@ -220,8 +220,13 @@ describe("validateSnapshot", () => {
 });
 
 describe("validateSnapshot numeric parsing", () => {
-  it("accepts multi-digit and zero-padded numbers", () => {
-    expect(validateSnapshot({ period: "01", clock: "5:30", home: "007", away: "300" })).toEqual({
+  it.each(["01", "00", "0", "10", "1 1", "+1", "1.0"])("rejects non-canonical period %j", (p) => {
+    const result = validateSnapshot({ period: p, clock: "5:30", home: "1", away: "1" });
+    expect(result.ok).toBe(false);
+  });
+
+  it("accepts multi-digit and zero-padded scores", () => {
+    expect(validateSnapshot({ period: "1", clock: "5:30", home: "007", away: "300" })).toEqual({
       ok: true,
       snapshot: { period: 1, remaining: 330, home: 7, away: 300 },
     });
