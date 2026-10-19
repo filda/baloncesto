@@ -386,6 +386,37 @@ footer {
   white-space: nowrap;
 }
 
+.sheet-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sheet-info-text {
+  flex: none;
+}
+
+.place-button {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--home);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: underline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.place-button[hidden] {
+  display: none;
+}
+
 .history-place {
   margin: 0;
   padding: 2px 8px 6px;

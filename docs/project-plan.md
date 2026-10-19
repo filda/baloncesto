@@ -69,6 +69,8 @@ Visual direction: **paper scoresheet**. Off-white paper, a grid like an official
 - New game button: prefills date, time and geolocation.
   - Geolocation via the Geolocation API, place name via reverse geocoding (Nominatim, respect its usage policy, cache the result).
   - If permission is denied or the network is unavailable, the field stays empty and can be filled in manually.
+- On start (empty hash or `#/`) the new game form opens when there is no current game or it has no snapshots; CANCEL returns to the sheet and the form is not reopened until the next start.
+- Sheet info line: a game without a place shows the date followed by a printed "+ ADD PLACE" button (44 px tall) that runs the geolocation flow for the current game (status on the button, "LOCATION UNAVAILABLE · RETRY" on failure; coordinates are shown as the place when no place name is found).
 - Game history (list, open, delete).
 
 ## Milestones

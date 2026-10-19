@@ -22,7 +22,9 @@ import {
   newGame,
   nextInputDefaults,
   normalizeTeamName,
+  shouldOpenNewFormOnStart,
   removeSnapshotAt,
+  withLocation,
 } from "./app/match";
 import type { Game } from "./app/match";
 import {
@@ -64,7 +66,37 @@ if (app) {
     saveState(storage, state);
   }
 
+  // Bumped when the current game changes so late "+ ADD PLACE" results are ignored.
+  let placeSession = 0;
+
+  function resetPlaceLookup(): void {
+    placeSession++;
+    view.setPlaceStatus(null);
+  }
+
+  function addPlaceToGame(): void {
+    const session = ++placeSession;
+    const id = game.id;
+    void locate(
+      { getPosition: browserGetPosition, fetchJson: browserFetchJson, storage },
+      (update) => {
+        if (session !== placeSession || game.id !== id) return;
+        if (update.status === "unavailable") {
+          view.setPlaceStatus("unavailable");
+        } else if (update.coords && (update.place || update.status === "place-unavailable")) {
+          game = withLocation(game, update.coords, update.place);
+          persist();
+          view.setPlaceStatus(null);
+          view.render(game, []);
+        } else {
+          view.setPlaceStatus("locating");
+        }
+      },
+    );
+  }
+
   function switchTo(next: Game): void {
+    resetPlaceLookup();
     if (game.snapshots.length === 0 && game.id !== next.id) state = deleteGame(state, game.id);
     game = next;
     persist();
@@ -143,6 +175,7 @@ if (app) {
     onNew() {
       location.hash = NEW_HASH;
     },
+    onAddPlace: addPlaceToGame,
     onTeamName(side, value) {
       game =
         side === "home"
@@ -173,6 +206,7 @@ if (app) {
       if (!confirm("Delete this game?")) return;
       state = deleteGame(state, id);
       if (game.id === id) {
+        resetPlaceLookup();
         game = createGame();
         showGame();
       }
@@ -183,6 +217,11 @@ if (app) {
 
   window.addEventListener("hashchange", route);
   showGame();
+  const atSheet = location.hash === "" || location.hash === "#" || location.hash === SHEET_HASH;
+  if (atSheet && shouldOpenNewFormOnStart(findGame(state, state.currentId) ?? undefined)) {
+    // Replace the entry so the form is not a history step; CANCEL later returns to the sheet.
+    history.replaceState(null, "", NEW_HASH);
+  }
   route();
 }
 

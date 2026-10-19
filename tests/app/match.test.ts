@@ -9,6 +9,10 @@ import {
   newGame,
   nextInputDefaults,
   removeSnapshotAt,
+  shouldOpenNewFormOnStart,
+  coordsText,
+  withLocation,
+  addPlaceLabel,
 } from "../../src/app/match";
 
 const a = { period: 1, remaining: 300, home: 10, away: 8 };
@@ -146,5 +150,52 @@ describe("gameInfoLine", () => {
     expect(gameInfoLine({ ...empty(), location: { lat: 1, lon: 2 } }, fmt)).toBe(
       "fmt(2026-03-04T18:30:00.000Z)",
     );
+  });
+});
+
+describe("shouldOpenNewFormOnStart", () => {
+  it("opens the form without a game or without snapshots only", () => {
+    expect(shouldOpenNewFormOnStart(undefined)).toBe(true);
+    expect(shouldOpenNewFormOnStart(empty())).toBe(true);
+    expect(shouldOpenNewFormOnStart({ ...empty(), snapshots: [a] })).toBe(false);
+  });
+});
+
+describe("coordsText", () => {
+  it("rounds to three decimals", () => {
+    expect(coordsText({ lat: 49.19512, lon: 16.60749 })).toBe("49.195, 16.607");
+    expect(coordsText({ lat: 49, lon: -1.5 })).toBe("49.000, -1.500");
+  });
+});
+
+describe("withLocation", () => {
+  const coords = { lat: 49.195, lon: 16.607 };
+
+  it("stores coordinates and the place", () => {
+    expect(withLocation(empty(), coords, " Hall ").location).toEqual({
+      lat: 49.195,
+      lon: 16.607,
+      place: "Hall",
+    });
+  });
+
+  it("falls back to the coordinates text and keeps the rest of the game", () => {
+    const game = { ...empty(), snapshots: [a] };
+    const result = withLocation(game, coords, undefined);
+    expect(result.location?.place).toBe("49.195, 16.607");
+    expect(withLocation(game, coords, "  ").location?.place).toBe("49.195, 16.607");
+    expect(result.snapshots).toEqual([a]);
+    expect(result.id).toBe("g1");
+    expect(game.location).toBeUndefined();
+  });
+});
+
+describe("addPlaceLabel", () => {
+  it("describes the lookup state", () => {
+    expect(addPlaceLabel(null)).toBe("+ Add place");
+    expect(addPlaceLabel("locating")).toBe("Locating…");
+    expect(addPlaceLabel("unavailable")).toBe("Location unavailable · retry");
+    expect(addPlaceLabel("located")).toBe("+ Add place");
+    expect(addPlaceLabel("place-unavailable")).toBe("+ Add place");
   });
 });

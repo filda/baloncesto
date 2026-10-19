@@ -11,6 +11,7 @@ import {
   DEFAULT_HOME_NAME,
   MAX_TEAM_NAME_LENGTH,
   currentPrediction,
+  addPlaceLabel,
   gameInfoLine,
   lastSnapshot,
 } from "./match";
@@ -32,6 +33,7 @@ export interface ViewHandlers {
   /** Deletes the log entry at `index` (0-based, chronological order). */
   onRemoveEntry(index: number): void;
   onNew(): void;
+  onAddPlace(): void;
   onTeamName(side: Side, value: string): void;
   onStart(form: NewGameForm): void;
   onCancel(): void;
@@ -51,6 +53,8 @@ export interface View {
   /** Resets the new-game form (empty names and place, given date and time). */
   openNewForm(dateTime: string): void;
   setLocationStatus(status: LocationStatus): void;
+  /** Status of the "+ ADD PLACE" lookup on the sheet (null: idle); re-renders the info line. */
+  setPlaceStatus(status: LocationStatus | null): void;
   /** Fills the place field unless the user has already typed into it. */
   suggestPlace(place: string): void;
   focusHome(): void;
@@ -116,6 +120,13 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   }
 
   const info = el("p", "printed sheet-info");
+  const infoText = el("span", "sheet-info-text");
+  const addPlace = el("button", "place-button");
+  addPlace.type = "button";
+  addPlace.id = "btn-add-place";
+  addPlace.addEventListener("click", () => handlers.onAddPlace());
+  info.append(infoText, addPlace);
+  let placeStatus: LocationStatus | null = null;
 
   const estimate = el("section", "estimate");
   estimate.id = "estimate";
@@ -320,6 +331,20 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     renderChart(chart, current?.snapshots ?? [], current ? namesOf(current) : undefined),
   ).observe(chart);
 
+  function renderInfo(): void {
+    if (!current) return;
+    infoText.textContent = gameInfoLine(current, formatDateTime);
+    const missing = !current.location?.place;
+    addPlace.hidden = !missing;
+    addPlace.textContent = addPlaceLabel(placeStatus);
+    addPlace.disabled = placeStatus === "locating";
+  }
+
+  function setPlaceStatus(status: LocationStatus | null): void {
+    placeStatus = status;
+    renderInfo();
+  }
+
   function render(game: Game, errors: FieldError[]): void {
     current = game;
     renderChart(chart, game.snapshots, namesOf(game));
@@ -327,7 +352,7 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     teamInputs.away.value = game.awayName;
     scoreLabels.home.textContent = game.homeName;
     scoreLabels.away.textContent = game.awayName;
-    info.textContent = gameInfoLine(game, formatDateTime);
+    renderInfo();
     const prediction = currentPrediction(game);
     estimateHome.textContent = prediction ? String(roundScore(prediction.home)) : "—";
     estimateAway.textContent = prediction ? String(roundScore(prediction.away)) : "";
@@ -464,6 +489,7 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     setInput,
     openNewForm,
     setLocationStatus,
+    setPlaceStatus,
     suggestPlace,
     focusHome,
   };

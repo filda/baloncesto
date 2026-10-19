@@ -2,6 +2,7 @@ import { formatClock } from "../domain/clock";
 import { predict } from "../domain/predict";
 import type { Prediction, Snapshot } from "../domain/predict";
 import type { SnapshotInput } from "../domain/validate";
+import type { Coords, LocationStatus } from "./geo";
 
 /** Coordinates (lat and lon always together) and/or a place name; at least one of them is present. */
 export interface GameLocation {
@@ -77,6 +78,31 @@ export function createGame(input: NewGameInput): Game {
 export function gameInfoLine(game: Game, formatDate: (iso: string) => string): string {
   const place = game.location?.place;
   return place ? `${formatDate(game.createdAt)} · ${place}` : formatDate(game.createdAt);
+}
+
+/** The app opens the new-game form on start when there is nothing to continue with. */
+export function shouldOpenNewFormOnStart(game: Game | undefined): boolean {
+  return game === undefined || game.snapshots.length === 0;
+}
+
+/** "49.195, 16.607": coordinates as place text when no place name could be resolved. */
+export function coordsText(coords: Coords): string {
+  return `${coords.lat.toFixed(3)}, ${coords.lon.toFixed(3)}`;
+}
+
+/** Applies a locate result to a game; without a place name the coordinates text is the place. */
+export function withLocation(game: Game, coords: Coords, place: string | undefined): Game {
+  return {
+    ...game,
+    location: { lat: coords.lat, lon: coords.lon, place: place?.trim() || coordsText(coords) },
+  };
+}
+
+/** Label of the "+ ADD PLACE" button (CSS uppercases it) for the running lookup, if any. */
+export function addPlaceLabel(status: LocationStatus | null): string {
+  if (status === "locating") return "Locating…";
+  if (status === "unavailable") return "Location unavailable · retry";
+  return "+ Add place";
 }
 
 export function addSnapshot<T extends HasSnapshots>(game: T, snapshot: Snapshot): T {
