@@ -10,6 +10,7 @@ The app is installable (PWA) and works offline.
 npm install      # install dependencies
 npm run dev      # development server
 npm run check    # format, lint, typecheck, tests and build
+npm run test:mutation  # Stryker mutation tests (slow; in CI via the manual "Mutation Testing" workflow)
 ```
 
 ## Privacy

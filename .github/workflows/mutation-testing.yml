@@ -1,0 +1,67 @@
+name: Mutation Testing
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: Run Stryker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run mutation testing
+        run: npm run test:mutation
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-report
+          path: reports/mutation
+          if-no-files-found: ignore
+
+      - name: Add mutation score to job summary
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            const file = "reports/mutation/mutation.json";
+            if (!fs.existsSync(file)) {
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "## Mutation testing\n\nNo report was produced.\n");
+              process.exit(0);
+            }
+            const report = JSON.parse(fs.readFileSync(file, "utf8"));
+            const counts = {};
+            for (const f of Object.values(report.files)) {
+              for (const m of f.mutants) counts[m.status] = (counts[m.status] ?? 0) + 1;
+            }
+            const n = (s) => counts[s] ?? 0;
+            const killed = n("Killed") + n("Timeout");
+            const total = killed + n("Survived") + n("NoCoverage");
+            const score = total === 0 ? 100 : (killed / total) * 100;
+            const lines = [
+              "## Mutation testing",
+              "",
+              `**Mutation score: ${score.toFixed(2)}%**`,
+              "",
+              "| Killed | Timeout | Survived | No coverage | Errors |",
+              "| ---: | ---: | ---: | ---: | ---: |",
+              `| ${n("Killed")} | ${n("Timeout")} | ${n("Survived")} | ${n("NoCoverage")} | ${n("CompileError") + n("RuntimeError")} |`,
+              "",
+            ];
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n"));
+          '
