@@ -55,28 +55,29 @@ describe("computeChart", () => {
   it("handles a single snapshot", () => {
     const model = computeChart([a], W, H);
     expect(model.end).toBe(2400);
-    expect(model.yMax).toBe(90);
-    expect(model.yTicks.map((t) => t.value)).toEqual([0, 20, 40, 60, 80]);
+    // the band's upper edge (80 + 1.96 × √140 = 103.2) lifts yMax from 90 to 120
+    expect(model.yMax).toBe(120);
+    expect(model.yTicks.map((t) => t.value)).toEqual([0, 20, 40, 60, 80, 100, 120]);
     expect(model.home.known).toHaveLength(2);
     expectPoint(model.home.known[0], LEFT, BOTTOM);
-    expectPoint(model.home.known[1], 30 + 33.75, BOTTOM - (10 * 190) / 90);
-    expectPoint(model.away.known[1], 30 + 33.75, BOTTOM - (8 * 190) / 90);
-    expectPoint(model.home.prediction?.from, 30 + 33.75, BOTTOM - (10 * 190) / 90);
-    expectPoint(model.home.prediction?.to, 300, BOTTOM - (80 * 190) / 90);
-    expectPoint(model.away.prediction?.to, 300, BOTTOM - (64 * 190) / 90);
+    expectPoint(model.home.known[1], 30 + 33.75, BOTTOM - (10 * 190) / 120);
+    expectPoint(model.away.known[1], 30 + 33.75, BOTTOM - (8 * 190) / 120);
+    expectPoint(model.home.prediction?.from, 30 + 33.75, BOTTOM - (10 * 190) / 120);
+    expectPoint(model.home.prediction?.to, 300, BOTTOM - (80 * 190) / 120);
+    expectPoint(model.away.prediction?.to, 300, BOTTOM - (64 * 190) / 120);
     expect(model.home.finalLabel).toBe(80);
     expect(model.away.finalLabel).toBe(64);
   });
 
   it("handles several snapshots in order", () => {
     const model = computeChart([a, b], W, H);
-    expect(model.yMax).toBe(90);
+    expect(model.yMax).toBe(110);
     expect(model.home.known).toHaveLength(3);
-    expectPoint(model.home.known[1], 30 + 33.75, BOTTOM - (10 * 190) / 90);
-    expectPoint(model.home.known[2], 131.25, BOTTOM - (30 * 190) / 90);
-    expectPoint(model.away.known[2], 131.25, BOTTOM - (24 * 190) / 90);
-    expectPoint(model.home.prediction?.from, 131.25, BOTTOM - (30 * 190) / 90);
-    expectPoint(model.home.prediction?.to, 300, BOTTOM - (80 * 190) / 90);
+    expectPoint(model.home.known[1], 30 + 33.75, BOTTOM - (10 * 190) / 110);
+    expectPoint(model.home.known[2], 131.25, BOTTOM - (30 * 190) / 110);
+    expectPoint(model.away.known[2], 131.25, BOTTOM - (24 * 190) / 110);
+    expectPoint(model.home.prediction?.from, 131.25, BOTTOM - (30 * 190) / 110);
+    expectPoint(model.home.prediction?.to, 300, BOTTOM - (80 * 190) / 110);
     expect(model.home.finalLabel).toBe(80);
     expect(model.away.finalLabel).toBe(64);
   });
@@ -93,13 +94,13 @@ describe("computeChart", () => {
     const model = computeChart([{ period: 1, remaining: 600, home: 0, away: 0 }, a], W, H);
     expect(model.home.known).toHaveLength(2);
     expectPoint(model.home.known[0], LEFT, BOTTOM);
-    expectPoint(model.home.known[1], 30 + 33.75, BOTTOM - (10 * 190) / 90);
+    expectPoint(model.home.known[1], 30 + 33.75, BOTTOM - (10 * 190) / 120);
   });
 
   it("extends the end to 2700 in overtime", () => {
     const model = computeChart([{ period: 5, remaining: 300, home: 90, away: 88 }], W, H);
     expect(model.end).toBe(2700);
-    expect(model.yMax).toBe(120);
+    expect(model.yMax).toBe(130);
     expect(model.yTicks.map((t) => t.value)).toEqual([0, 20, 40, 60, 80, 100, 120]);
     expect(model.boundaries.map((x) => x.seconds)).toEqual([600, 1200, 1800, 2400]);
     expect(model.boundaries[3]?.x).toBeCloseTo(30 + (270 * 2400) / 2700, 6);
@@ -107,7 +108,7 @@ describe("computeChart", () => {
     expect(model.periodLabels[4]?.x).toBeCloseTo(30 + (270 * 2550) / 2700, 6);
     expect(model.home.finalLabel).toBe(101);
     expect(model.away.finalLabel).toBe(99);
-    expectPoint(model.home.prediction?.to, 300, BOTTOM - (101.25 * 190) / 120);
+    expectPoint(model.home.prediction?.to, 300, BOTTOM - (101.25 * 190) / 130);
   });
 
   it("adds a label per further overtime", () => {
@@ -125,8 +126,79 @@ describe("computeChart", () => {
     expect(computeChart([end(101, 50)], W, H).yMax).toBe(120);
   });
 
-  it("includes predicted finals in yMax", () => {
-    expect(computeChart([a], W, H).yMax).toBe(90);
+  it("includes predicted finals and the range band in yMax", () => {
+    // the prediction alone (80) would give 90; the band's high (103.2) gives 120
+    expect(computeChart([a], W, H).yMax).toBe(120);
+    expect(computeChart([end(54, 0)], W, H).yMax).toBe(60);
+    // 40 points after 1200 s: prediction 80, band high 80 + 1.96 × √80 = 97.5 -> 110, not 90
+    expect(computeChart([{ period: 2, remaining: 0, home: 40, away: 0 }], W, H).yMax).toBe(110);
+  });
+
+  describe("range band", () => {
+    // snapshot b: 30 : 24 at 900 s, end 2400; yMax 110, 190 / 110 px per point
+    const model = computeChart([b], W, H);
+    const px = (seconds: number): number => 30 + (270 * seconds) / 2400;
+    const py = (points: number): number => BOTTOM - (points * 190) / 110;
+
+    it("has a zero-width start at the last entry and 13 samples per edge", () => {
+      const band = model.home.band;
+      expect(band).toHaveLength(26);
+      expectPoint(band?.[0], px(900), py(30));
+      expectPoint(band?.[25], px(900), py(30));
+    });
+
+    it("widens with the square root of the time ahead, centred on the prediction", () => {
+      const band = model.home.band ?? [];
+      const pace = 30 / 900;
+      for (const i of [1, 6, 12]) {
+        const ahead = (1500 * i) / 12;
+        const centre = 30 + pace * ahead;
+        const half = 1.96 * Math.sqrt(2 * pace * ahead);
+        expectPoint(band[i], px(900 + ahead), py(centre + half));
+        expectPoint(band[25 - i], px(900 + ahead), py(Math.max(30, centre - half)));
+      }
+      // the end of the band spans the final range 80 ± 1.96 × √100
+      expect(model.home.range).toEqual({ low: 60, high: 100 });
+      expectPoint(band[12], px(2400), py(80 + 1.96 * Math.sqrt(100)));
+      expectPoint(band[13], px(2400), py(80 - 1.96 * Math.sqrt(100)));
+    });
+
+    it("clamps the lower edge to the current score", () => {
+      // 10 points after 300 s: at the very start the centre barely moves while the half-width
+      // grows quickly, so the lower edge would drop below 10
+      const clamped = computeChart([a], W, H).home.band ?? [];
+      const yMaxA = 120;
+      const lowest = clamped.slice(13);
+      for (const p of lowest) expect(p.y).toBeLessThanOrEqual(BOTTOM - (10 * 190) / yMaxA + 1e-9);
+      // first step: ahead = 175 s, raw lower edge 15.83 - 6.70 = 9.1 -> 10
+      expectPoint(clamped[24], 30 + (270 * 475) / 2400, BOTTOM - (10 * 190) / yMaxA);
+      // the upper edge is not clamped
+      const half = 1.96 * Math.sqrt(2 * (10 / 300) * 175);
+      expectPoint(
+        clamped[1],
+        30 + (270 * 475) / 2400,
+        BOTTOM - ((10 + (10 / 300) * 175 + half) * 190) / yMaxA,
+      );
+    });
+
+    it("is absent without a prediction", () => {
+      const none = computeChart([{ period: 1, remaining: 600, home: 0, away: 0 }], W, H);
+      expect(none.home.band).toBeNull();
+      expect(none.home.range).toBeNull();
+      expect(computeChart([], W, H).away.band).toBeNull();
+    });
+
+    it("collapses at the final buzzer", () => {
+      const done = computeChart([end(82, 76)], W, H);
+      expect(done.home.range).toEqual({ low: 82, high: 82 });
+      for (const p of done.home.band ?? []) expect(p.y).toBeCloseTo(BOTTOM - (82 * 190) / 100, 6);
+    });
+
+    it("has a flat band for a team without points", () => {
+      const zero = computeChart([{ period: 1, remaining: 300, home: 0, away: 10 }], W, H);
+      expect(zero.home.range).toEqual({ low: 0, high: 0 });
+      for (const p of zero.home.band ?? []) expect(p.y).toBeCloseTo(BOTTOM, 6);
+    });
   });
 
   it("uses a tick step of 10 up to 60 and 20 above", () => {

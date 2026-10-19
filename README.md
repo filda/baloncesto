@@ -43,6 +43,10 @@ All game data lives in `localStorage` under the key `baloncesto:v1` as one JSON 
 
 A second key, `baloncesto:geocache`, holds the reverse-geocoding cache: a JSON object mapping `"lat,lon"` (coordinates rounded to 3 decimals) to a place name string. Non-string values are ignored when it is read.
 
+### Prediction range
+
+The projected final is linear (`points + points / elapsed × remaining`). Its range is a ≈ 95 % interval: with expected remaining points `E = points / elapsed × remaining`, scoring events worth ~2 points give `prediction ± 1.96 × √(2 × E)`, and the lower bound is never below the current score. The range shrinks to zero at the final buzzer, is drawn as a light band around the dashed line and is printed as min–max under the projected final.
+
 ### Migration policy
 
 The stored `version` is the schema version. `migrate()` in `src/app/storage.ts` currently accepts only version `1` and returns it unchanged; any other or missing version (including newer ones) yields `null`, which loads as the empty state and does not overwrite anything until the next save. To change the schema, bump the version (and the storage key), add a step v(n) → v(n+1) in `migrate()` and chain the steps. Old keys are never mutated in place.

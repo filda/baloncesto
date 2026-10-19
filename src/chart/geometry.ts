@@ -5,8 +5,11 @@ import {
   elapsedSeconds,
   gameEndSeconds,
 } from "../domain/clock";
-import { predict, roundScore } from "../domain/predict";
+import { halfWidth, predict, predictRange, roundScore } from "../domain/predict";
 import type { Snapshot } from "../domain/predict";
+
+/** Number of segments the band's edges are sampled in between the last entry and the end. */
+export const BAND_STEPS = 12;
 
 export const PADDING = { top: 22, right: 38, bottom: 10, left: 30 } as const;
 
@@ -40,6 +43,10 @@ export interface TeamSeries {
   known: Point[];
   prediction: { from: Point; to: Point } | null;
   finalLabel: number | null;
+  /** Rounded min–max of the final score. */
+  range: { low: number; high: number } | null;
+  /** Closed polygon of the range band: upper edge forwards, lower edge back. */
+  band: Point[] | null;
 }
 
 export interface ChartModel {
@@ -67,11 +74,13 @@ export function computeChart(snapshots: Snapshot[], width: number, height: numbe
   const last = snapshots.at(-1);
   const end = last ? gameEndSeconds(last.period) : REGULATION_END;
   const prediction = last ? predict(last) : null;
+  const range = last ? predictRange(last) : null;
 
   const peak = Math.max(
     10,
     ...snapshots.flatMap((s) => [s.home, s.away]),
     ...(prediction ? [prediction.home, prediction.away] : []),
+    ...(range ? [range.home.high, range.away.high] : []),
   );
   const yMax = Math.ceil((peak * 11) / 100) * 10;
   const step = yMax <= 60 ? 10 : 20;
@@ -106,7 +115,21 @@ export function computeChart(snapshots: Snapshot[], width: number, height: numbe
     }
     // known always holds at least one point here; the guard only narrows the type.
     const from = known.at(-1);
-    if (!prediction || !from) return { known, prediction: null, finalLabel: null };
+    if (!prediction || !range || !last || !from) {
+      return { known, prediction: null, finalLabel: null, range: null, band: null };
+    }
+    const points = last[team];
+    const pace = points / prediction.elapsed;
+    const upper: Point[] = [];
+    const lower: Point[] = [];
+    for (let i = 0; i <= BAND_STEPS; i++) {
+      const ahead = ((end - prediction.elapsed) * i) / BAND_STEPS;
+      const centre = points + pace * ahead;
+      const half = halfWidth(pace * ahead);
+      const px = x(prediction.elapsed + ahead);
+      upper.push({ x: px, y: y(centre + half) });
+      lower.push({ x: px, y: y(Math.max(points, centre - half)) });
+    }
     return {
       known,
       prediction: {
@@ -114,6 +137,8 @@ export function computeChart(snapshots: Snapshot[], width: number, height: numbe
         to: { x: x(end), y: y(prediction[team]) },
       },
       finalLabel: roundScore(prediction[team]),
+      range: { low: roundScore(range[team].low), high: roundScore(range[team].high) },
+      band: [...upper, ...lower.reverse()],
     };
   }
 

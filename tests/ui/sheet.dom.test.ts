@@ -247,3 +247,28 @@ describe("chart", () => {
     expect($(root, "#chart")).toBeTruthy();
   });
 });
+
+describe("projected range", () => {
+  const range = () => $(root, ".estimate-range");
+
+  it("is hidden until there is a prediction", () => {
+    sheet.render(gameWith([]), []);
+    expect(range().hidden).toBe(true);
+  });
+
+  it("shows both ranges under the projected final, below the numbers", () => {
+    sheet.render(gameWith([{ period: 3, remaining: 432, home: 48, away: 45 }]), []);
+    expect($(root, ".estimate-score").textContent).toBe("84 : 79");
+    expect(range().hidden).toBe(false);
+    expect(range().textContent).toBe("68–101 · 63–95");
+    expect($(range(), ".home").textContent).toBe("68–101");
+    expect($(range(), ".away").textContent).toBe("63–95");
+  });
+
+  it("hides again when the last entry is removed", () => {
+    sheet.render(gameWith(entries), []);
+    expect(range().hidden).toBe(false);
+    sheet.render(gameWith([]), []);
+    expect(range().hidden).toBe(true);
+  });
+});

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { predict, roundScore } from "../../src/domain/predict";
+import {
+  POINTS_PER_EVENT,
+  Z,
+  finalRange,
+  halfWidth,
+  predict,
+  predictRange,
+  roundScore,
+} from "../../src/domain/predict";
 
 describe("predict", () => {
   it("projects linearly in regulation", () => {
@@ -84,5 +92,79 @@ describe("roundScore", () => {
     [82, 82],
   ])("rounds %f to %i", (input, expected) => {
     expect(roundScore(input)).toBe(expected);
+  });
+});
+
+describe("constants", () => {
+  it("uses a 95 % interval and two-point scoring events", () => {
+    expect(Z).toBe(1.96);
+    expect(POINTS_PER_EVENT).toBe(2);
+  });
+});
+
+describe("halfWidth", () => {
+  it("is Z × √(2 × expected)", () => {
+    expect(halfWidth(0)).toBe(0);
+    expect(halfWidth(50)).toBeCloseTo(19.6, 10);
+    expect(halfWidth(8)).toBeCloseTo(7.84, 10);
+  });
+});
+
+describe("predictRange", () => {
+  it("returns null when nothing has been played", () => {
+    expect(predictRange({ period: 1, remaining: 600, home: 5, away: 3 })).toBeNull();
+  });
+
+  it("matches the formula for the worked example (period 3, 7:12, 48 : 45)", () => {
+    const range = predictRange({ period: 3, remaining: 432, home: 48, away: 45 });
+    // elapsed 1368, end 2400, left 1032
+    const eHome = (48 / 1368) * 1032;
+    const eAway = (45 / 1368) * 1032;
+    const halfHome = 1.96 * Math.sqrt(2 * eHome);
+    const halfAway = 1.96 * Math.sqrt(2 * eAway);
+    expect(range?.home.low).toBeCloseTo(48 + eHome - halfHome, 10);
+    expect(range?.home.high).toBeCloseTo(48 + eHome + halfHome, 10);
+    expect(range?.away.low).toBeCloseTo(45 + eAway - halfAway, 10);
+    expect(range?.away.high).toBeCloseTo(45 + eAway + halfAway, 10);
+    expect(roundScore(48 + eHome)).toBe(84);
+    expect(roundScore(45 + eAway)).toBe(79);
+    expect([range?.home.low, range?.home.high].map((v) => roundScore(v ?? 0))).toEqual([68, 101]);
+    expect([range?.away.low, range?.away.high].map((v) => roundScore(v ?? 0))).toEqual([63, 95]);
+  });
+
+  it("gives an exact band for a simple case", () => {
+    // elapsed 600, end 2400, 20 points -> E = 60, half = 1.96 × √120
+    const range = predictRange({ period: 1, remaining: 0, home: 20, away: 10 });
+    expect(range?.home.low).toBeCloseTo(80 - 1.96 * Math.sqrt(120), 10);
+    expect(range?.home.high).toBeCloseTo(80 + 1.96 * Math.sqrt(120), 10);
+    expect(range?.away.low).toBeCloseTo(40 - 1.96 * Math.sqrt(60), 10);
+    expect(range?.away.high).toBeCloseTo(40 + 1.96 * Math.sqrt(60), 10);
+  });
+
+  it("collapses to the current score at the final buzzer", () => {
+    expect(predictRange({ period: 4, remaining: 0, home: 82, away: 76 })).toEqual({
+      home: { low: 82, high: 82 },
+      away: { low: 76, high: 76 },
+    });
+  });
+
+  it("is a single point for a team with zero points", () => {
+    const range = predictRange({ period: 1, remaining: 300, home: 0, away: 10 });
+    expect(range?.home).toEqual({ low: 0, high: 0 });
+    expect(range?.away.high).toBeGreaterThan(80);
+  });
+
+  it("never goes below the current score", () => {
+    // 2 points after 599 s: predicted ≈ 8, half ≈ 6.4 → raw low ≈ 1.6 < 2
+    const range = predictRange({ period: 1, remaining: 1, home: 2, away: 2 });
+    expect(range?.home.low).toBe(2);
+    expect(finalRange(10, 12).low).toBe(10);
+    expect(finalRange(10, 12).high).toBeCloseTo(12 + 1.96 * 2, 10);
+  });
+
+  it("does not clamp a band that stays above the current score", () => {
+    const { low } = finalRange(10, 100);
+    expect(low).toBeCloseTo(100 - 1.96 * Math.sqrt(180), 10);
+    expect(low).toBeGreaterThan(10);
   });
 });

@@ -1,11 +1,17 @@
 import { formatClock } from "../../domain/clock";
 import { completeClockInput, formatClockInput } from "../../domain/clock-input";
-import { roundScore } from "../../domain/predict";
-import { renderChart } from "../../chart/render";
+import { predictRange, roundScore } from "../../domain/predict";
+import { rangeText, renderChart } from "../../chart/render";
 import type { Field, FieldError, SnapshotInput } from "../../domain/validate";
 import { formatDateTime } from "../format";
 import type { LocationStatus } from "../geo";
-import { MAX_TEAM_NAME_LENGTH, addPlaceLabel, currentPrediction, gameInfoLine } from "../match";
+import {
+  MAX_TEAM_NAME_LENGTH,
+  addPlaceLabel,
+  currentPrediction,
+  gameInfoLine,
+  lastSnapshot,
+} from "../match";
 import type { Game, Side } from "../match";
 import { button, el, selectOnFocus } from "./dom";
 
@@ -72,7 +78,12 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
   const estimateColon = el("span", "hand colon", " : ");
   const estimateScore = el("span", "estimate-score");
   estimateScore.append(estimateHome, estimateColon, estimateAway);
-  estimate.append(teamInputs.home, estimateScore, teamInputs.away);
+  const rangeHome = el("span", "home");
+  const rangeAway = el("span", "away");
+  const rangeLine = el("span", "printed estimate-range");
+  rangeLine.append(rangeHome, " · ", rangeAway);
+  rangeLine.hidden = true;
+  estimate.append(teamInputs.home, estimateScore, teamInputs.away, rangeLine);
 
   const chart = el("section", "chart");
   chart.id = "chart";
@@ -191,6 +202,19 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
     const prediction = currentPrediction(game);
     estimateHome.textContent = prediction ? String(roundScore(prediction.home)) : "—";
     estimateAway.textContent = prediction ? String(roundScore(prediction.away)) : "—";
+    const last = prediction ? lastSnapshot(game) : null;
+    const range = last ? predictRange(last) : null;
+    rangeLine.hidden = !range;
+    if (range) {
+      rangeHome.textContent = rangeText({
+        low: roundScore(range.home.low),
+        high: roundScore(range.home.high),
+      });
+      rangeAway.textContent = rangeText({
+        low: roundScore(range.away.low),
+        high: roundScore(range.away.high),
+      });
+    }
 
     formError.textContent = errors.find((e) => e.field === "form")?.message ?? "";
 

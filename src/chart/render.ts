@@ -38,7 +38,23 @@ export function chartLabel(
   if (!last) return "Score chart: no entries yet";
   const base = `Score chart: ${names.home} ${last.home}, ${names.away} ${last.away}`;
   if (home.finalLabel === null || away.finalLabel === null) return base;
-  return `${base}, projected final ${home.finalLabel} : ${away.finalLabel}`;
+  const projected = `${base}, projected final ${home.finalLabel} : ${away.finalLabel}`;
+  if (home.range === null || away.range === null) return projected;
+  return `${projected} (home ${rangeText(home.range)}, away ${rangeText(away.range)})`;
+}
+
+/** "72–96": rounded min–max of a final score. */
+export function rangeText(range: { low: number; high: number }): string {
+  return `${range.low}–${range.high}`;
+}
+
+/** Offset of the range text from the big final label; the upper label's goes above, the lower's below. */
+const RANGE_OFFSET = 15;
+
+export function rangeLabelYs(homeLabelY: number, awayLabelY: number): [number, number] {
+  return homeLabelY <= awayLabelY
+    ? [homeLabelY - RANGE_OFFSET, awayLabelY + RANGE_OFFSET]
+    : [homeLabelY + RANGE_OFFSET, awayLabelY - RANGE_OFFSET];
 }
 
 /** Vertical positions of the two final labels, nudged apart when they would overlap. */
@@ -171,11 +187,26 @@ export function renderChart(
       ? finalLabelYs(homeTo, awayTo)
       : [homeTo ?? 0, awayTo ?? 0];
 
-  const teams: [string, TeamSeries, number][] = [
-    ["var(--home)", model.home, homeLabelY],
-    ["var(--away)", model.away, awayLabelY],
+  const [homeRangeY, awayRangeY] = rangeLabelYs(homeLabelY, awayLabelY);
+
+  const teams: [string, TeamSeries, number, number][] = [
+    ["var(--home)", model.home, homeLabelY, homeRangeY],
+    ["var(--away)", model.away, awayLabelY, awayRangeY],
   ];
-  for (const [color, team, labelY] of teams) {
+  for (const [color, team] of teams) {
+    if (team.band) {
+      root.append(
+        svg("path", {
+          class: "band",
+          d: `M${points(team.band).replaceAll(" ", "L")}Z`,
+          fill: color,
+          "fill-opacity": 0.12,
+          stroke: "none",
+        }),
+      );
+    }
+  }
+  for (const [color, team, labelY, rangeY] of teams) {
     if (team.prediction) {
       const { from, to } = team.prediction;
       root.append(
@@ -212,6 +243,24 @@ export function renderChart(
           String(team.finalLabel),
         ),
       );
+      if (team.range) {
+        root.append(
+          svg(
+            "text",
+            {
+              class: "range-label",
+              x: width - 2,
+              y: rangeY,
+              fill: color,
+              "text-anchor": "end",
+              "dominant-baseline": "middle",
+              "font-family": "var(--printed-font)",
+              "font-size": 9,
+            },
+            rangeText(team.range),
+          ),
+        );
+      }
     }
     root.append(
       svg("polyline", {
