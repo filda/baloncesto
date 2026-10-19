@@ -128,7 +128,7 @@ also the largest and least structured file.
       Add manifest `id` (stable identity across scope changes); consider `display_override`. A meta
       CSP (`default-src 'self'; connect-src 'self' https://nominatim.openstreetmap.org`) is possible
       in `index.html` and costs little.
-- [ ] **Document the storage schema and validation rules** — `README.md` / `docs/project-plan.md`
+- [x] **Document the storage schema and validation rules** — `README.md` / `docs/project-plan.md`
       The localStorage schema, its versioning policy, and the accepted input ranges (period 1–9,
       scores 0–300, m:ss) live only in code. Write them down; also document the Nominatim
       rate/cache policy already implemented in `src/app/geo.ts`.
