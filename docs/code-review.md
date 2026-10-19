@@ -114,17 +114,17 @@ also the largest and least structured file.
 - [ ] **`.gitignore` is stock Vite boilerplate** — `.gitignore`
       ~130 lines of Nuxt/Gatsby/FuseBox/Docusaurus noise. Reduce to what the project needs
       (`node_modules/`, `dist/`, `reports/`, `.stryker-tmp/`, `.idea/`, logs, `.env*`).
-- [ ] **Missing `engines` / Node pinning** — `package.json`
+- [x] **Missing `engines` / Node pinning** — `package.json`
       CI uses Node 24 but nothing declares it; add `"engines": { "node": ">=24" }` and/or a
       `.nvmrc`. Also decide the role of `"version": "0.0.0"` (never bumped) — bump per release or
       keep and rely on the footer commit hash only.
-- [ ] **Lint scope omits config files** — `package.json:11`
+- [x] **Lint scope omits config files** — `package.json:11`
       `oxlint src tests` skips `vite.config.ts`, `vitest.config.ts`, `stryker.config.mjs`,
       `pwa-assets.config.ts`. Include them.
 - [ ] **Mutation testing only manual** — `.github/workflows/mutation-testing.yml`
       Fine per plan, but add a weekly `schedule` trigger (or run on PRs touching `src/domain`) so
       the mutation score cannot silently drift.
-- [ ] **Manifest hardening** — `vite.config.ts:24-46`
+- [x] **Manifest hardening** — `vite.config.ts:24-46`
       Add manifest `id` (stable identity across scope changes); consider `display_override`. A meta
       CSP (`default-src 'self'; connect-src 'self' https://nominatim.openstreetmap.org`) is possible
       in `index.html` and costs little.
@@ -132,7 +132,7 @@ also the largest and least structured file.
       The localStorage schema, its versioning policy, and the accepted input ranges (period 1–9,
       scores 0–300, m:ss) live only in code. Write them down; also document the Nominatim
       rate/cache policy already implemented in `src/app/geo.ts`.
-- [ ] **No dependency update automation** — add Dependabot/Renovate config (there is already one
+- [x] **No dependency update automation** — add Dependabot/Renovate config (there is already one
       manual `overrides` entry for `qs` from an audit fix — exactly the kind of drift automation
       prevents).
 
