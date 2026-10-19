@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   addSnapshot,
   createGame,
+  draftNewGame,
+  INVALID_DATE_MESSAGE,
   currentPrediction,
   gameInfoLine,
   normalizeTeamName,
@@ -204,5 +206,49 @@ describe("addPlaceLabel", () => {
     expect(addPlaceLabel("unavailable")).toBe("Location unavailable · retry");
     expect(addPlaceLabel("located")).toBe("+ Add place");
     expect(addPlaceLabel("place-unavailable")).toBe("+ Add place");
+  });
+});
+
+describe("draftNewGame", () => {
+  const form = {
+    homeName: "Lakers",
+    awayName: "Celtics",
+    dateTime: "2026-05-06T07:08",
+    place: "Brno",
+  };
+
+  it("builds the input from valid form values and coordinates", () => {
+    const draft = draftNewGame(form, { lat: 49.2, lon: 16.6 });
+    expect(draft).toEqual({
+      ok: true,
+      input: {
+        createdAt: new Date(2026, 4, 6, 7, 8),
+        homeName: "Lakers",
+        awayName: "Celtics",
+        lat: 49.2,
+        lon: 16.6,
+        place: "Brno",
+      },
+    });
+  });
+
+  it("omits coordinates when unknown", () => {
+    const draft = draftNewGame(form, null);
+    expect(draft.ok && draft.input.lat).toBeUndefined();
+    expect(draft.ok && draft.input.lon).toBeUndefined();
+  });
+
+  it.each(["", "garbage", "2026-02-30T10:00", "2026-05-06T25:00", "2026-05-06"])(
+    "rejects the date %j instead of using now",
+    (dateTime) => {
+      expect(draftNewGame({ ...form, dateTime }, null)).toEqual({
+        ok: false,
+        errors: { dateTime: "Enter a valid date and time." },
+      });
+    },
+  );
+
+  it("exposes the message", () => {
+    expect(INVALID_DATE_MESSAGE).toBe("Enter a valid date and time.");
   });
 });

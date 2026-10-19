@@ -1,16 +1,10 @@
 import { STATUS_TEXT } from "../geo";
 import type { LocationStatus } from "../geo";
 import { DEFAULT_AWAY_NAME, DEFAULT_HOME_NAME, MAX_TEAM_NAME_LENGTH } from "../match";
+import type { NewGameFormValues } from "../match";
 import { button, el } from "./dom";
 
-/** Raw values of the new-game form. */
-export interface NewGameForm {
-  homeName: string;
-  awayName: string;
-  /** `datetime-local` value, local time. */
-  dateTime: string;
-  place: string;
-}
+export type NewGameForm = NewGameFormValues;
 
 export interface NewGameHandlers {
   onStart(form: NewGameForm): void;
@@ -25,6 +19,8 @@ export interface NewGameView {
   setLocationStatus(status: LocationStatus): void;
   /** Fills the place field unless the user has already typed into it. */
   suggestPlace(place: string): void;
+  /** Flags the date field as invalid (empty message clears it). */
+  setDateError(message: string): void;
 }
 
 export function mountNewGame(handlers: NewGameHandlers): NewGameView {
@@ -62,6 +58,20 @@ export function mountNewGame(handlers: NewGameHandlers): NewGameView {
   away.maxLength = MAX_TEAM_NAME_LENGTH;
   away.placeholder = DEFAULT_AWAY_NAME;
   const date = textField("n-datetime", "dateTime", "Date & time", "datetime-local");
+  const dateError = el("p", "error");
+  dateError.id = "n-datetime-error";
+  date.parentElement?.append(dateError);
+  function setDateError(message: string): void {
+    dateError.textContent = message;
+    if (message) {
+      date.setAttribute("aria-invalid", "true");
+      date.setAttribute("aria-describedby", dateError.id);
+    } else {
+      date.removeAttribute("aria-invalid");
+      date.removeAttribute("aria-describedby");
+    }
+  }
+  date.addEventListener("input", () => setDateError(""));
   const place = textField("n-place", "place", "Place", "text");
   place.enterKeyHint = "done";
   const status = el("p", "printed location-status");
@@ -104,11 +114,13 @@ export function mountNewGame(handlers: NewGameHandlers): NewGameView {
       date.value = dateTime;
       place.value = "";
       placeTouched = false;
+      setDateError("");
     },
     setLocationStatus(next) {
       status.textContent = STATUS_TEXT[next];
       status.dataset.status = next;
     },
+    setDateError,
     suggestPlace(suggestion) {
       if (!placeTouched) place.value = suggestion;
     },

@@ -56,11 +56,33 @@ export function mountHistory(handlers: HistoryHandlers): HistoryView {
       const place = game.location?.place;
       const placeLine = place ? [el("p", "printed history-place", place)] : [];
       const buttons = el("div", "actions");
+      const confirm = el("div", "history-confirm");
+      confirm.hidden = true;
+      confirm.setAttribute("role", "group");
+      confirm.setAttribute("aria-label", "Confirm delete");
+      const ask = (asking: boolean): void => {
+        buttons.hidden = asking;
+        confirm.hidden = !asking;
+      };
+      const deleteButton = button("history-delete secondary", "Delete", () => {
+        ask(true);
+        keepButton.focus();
+      });
+      const keepButton = button("history-keep primary", "KEEP", () => {
+        ask(false);
+        deleteButton.focus();
+      });
+      const confirmButtons = el("div", "actions");
+      confirmButtons.append(
+        button("history-confirm-delete secondary", "DELETE", () => handlers.onDelete(game.id)),
+        keepButton,
+      );
+      confirm.append(el("p", "printed history-confirm-text", "DELETE THIS GAME?"), confirmButtons);
       buttons.append(
         button("history-open primary", "Open", () => handlers.onOpen(game.id)),
-        button("history-delete secondary", "Delete", () => handlers.onDelete(game.id)),
+        deleteButton,
       );
-      item.append(meta, teams, ...placeLine, buttons);
+      item.append(meta, teams, ...placeLine, buttons, confirm);
       return item;
     });
     history.replaceChildren(...rows);

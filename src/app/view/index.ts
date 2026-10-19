@@ -33,6 +33,8 @@ export interface View {
   setPlaceStatus(status: LocationStatus | null): void;
   /** Fills the place field unless the user has already typed into it. */
   suggestPlace(place: string): void;
+  /** Flags the new-game date field as invalid (empty message clears it). */
+  setDateError(message: string): void;
   focusHome(): void;
 }
 
@@ -72,6 +74,7 @@ export function mountView(container: HTMLElement, handlers: ViewHandlers): View 
     setLocationStatus: newGame.setLocationStatus,
     setPlaceStatus: sheet.setPlaceStatus,
     suggestPlace: newGame.suggestPlace,
+    setDateError: newGame.setDateError,
     focusHome: sheet.focusHome,
   };
 }

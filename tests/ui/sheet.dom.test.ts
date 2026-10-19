@@ -69,6 +69,20 @@ describe("render", () => {
     expect(handlers.onAddPlace).toHaveBeenCalledTimes(1);
   });
 
+  it("shows a dash for both sides while there is no prediction", () => {
+    sheet.render(gameWith([]), []);
+    expect($(root, ".estimate .hand.home").textContent).toBe("—");
+    expect($(root, ".estimate .hand.away").textContent).toBe("—");
+    expect($(root, ".estimate .colon").hidden).toBe(false);
+    expect($(root, ".estimate-score").textContent).toBe("— : —");
+  });
+
+  it("returns to dashes when the last entry is removed", () => {
+    sheet.render(gameWith(entries), []);
+    sheet.render(gameWith([]), []);
+    expect($(root, ".estimate-score").textContent).toBe("— : —");
+  });
+
   it("shows a projected final once there is an entry", () => {
     sheet.render(gameWith(entries), []);
     const text = $(root, ".estimate-score").textContent ?? "";

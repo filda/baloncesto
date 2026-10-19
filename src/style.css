@@ -354,6 +354,18 @@ footer {
   min-height: 44px;
 }
 
+/* Inline delete confirmation: replaces the row buttons, printed like the banners. */
+.history-confirm {
+  border-top: 1px solid var(--away);
+}
+
+.history-confirm-text {
+  margin: 0;
+  padding: 8px 8px 0;
+  letter-spacing: 0.14em;
+  color: var(--away);
+}
+
 /* Editable team names: look like printed labels until focused. */
 .team-name {
   width: 100%;

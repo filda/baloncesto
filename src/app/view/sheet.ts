@@ -7,7 +7,7 @@ import { formatDateTime } from "../format";
 import type { LocationStatus } from "../geo";
 import { MAX_TEAM_NAME_LENGTH, addPlaceLabel, currentPrediction, gameInfoLine } from "../match";
 import type { Game, Side } from "../match";
-import { button, el } from "./dom";
+import { button, el, selectOnFocus } from "./dom";
 
 export interface SheetHandlers {
   onSubmit(input: SnapshotInput): void;
@@ -119,27 +119,7 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
     formError.textContent = "";
   });
 
-  // Select the existing text on focus so typing overwrites it. On touch devices the tap's
-  // mouseup/click would collapse the selection again, so select once more after the tap and
-  // swallow the first mouseup following the focus.
-  for (const input of Object.values(inputs)) {
-    let justFocused = false;
-    input.addEventListener("focus", () => {
-      justFocused = true;
-      input.select();
-      requestAnimationFrame(() => input.select());
-      setTimeout(() => {
-        input.select();
-        justFocused = false;
-      }, 0);
-    });
-    input.addEventListener("mouseup", (event) => {
-      if (justFocused) event.preventDefault();
-    });
-    input.addEventListener("blur", () => {
-      justFocused = false;
-    });
-  }
+  for (const input of Object.values(inputs)) selectOnFocus(input);
   inputs.clock.addEventListener("input", () => {
     const formatted = formatClockInput(inputs.clock.value);
     if (formatted === inputs.clock.value) return;
@@ -210,8 +190,7 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
     renderInfo();
     const prediction = currentPrediction(game);
     estimateHome.textContent = prediction ? String(roundScore(prediction.home)) : "—";
-    estimateAway.textContent = prediction ? String(roundScore(prediction.away)) : "";
-    estimateColon.hidden = estimateAway.hidden = !prediction;
+    estimateAway.textContent = prediction ? String(roundScore(prediction.away)) : "—";
 
     formError.textContent = errors.find((e) => e.field === "form")?.message ?? "";
 

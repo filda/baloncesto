@@ -78,14 +78,14 @@ also the largest and least structured file.
 
 ## P2 — UI/UX and polish
 
-- [ ] **Asymmetric empty prediction display** — `src/app/view.ts:332-333`
+- [x] **Asymmetric empty prediction display** — `src/app/view.ts:332-333`
       No prediction renders home as `"—"` but away as `""` (only the colon is hidden). Unify: both
       `"—"`, or hide the whole score span. Add a DOM test so it cannot drift silently.
-- [ ] **Native `confirm()` for destructive actions** — `src/main.ts:173`
+- [x] **Native `confirm()` for destructive actions** — `src/main.ts:173`
       Breaks the crafted visual language and is untestable; deleting a game is irreversible with no
       undo. Either build a small in-app confirm sheet (matches the update-banner pattern) or support
       undo (keep the game in memory and offer "Undo" for a few seconds).
-- [ ] **Focus/select hack is brittle** — `src/app/view.ts:178-195`
+- [x] **Focus/select hack is brittle** — `src/app/view.ts:178-195`
       Three redundant `select()` calls plus swallowing the first `mouseup` — documented, but
       fragile across browsers. Extract into a named helper and cover it with happy-dom tests; or
       switch to selecting on `pointerdown`.
@@ -93,13 +93,13 @@ also the largest and least structured file.
       Any garbage hash shows the sheet without normalizing the URL, so Back/Forward behaves
       surprisingly. Consider `history.replaceState` normalization, and deep links like
       `#/game/<id>` so a specific game can be reopened from an URL.
-- [ ] **Dead code** — `src/app/view.ts:382`: `item.dataset.gameId` is written but never read.
+- [x] **Dead code** — `src/app/view.ts:382`: `item.dataset.gameId` is written but never read.
       Remove it or use it (e.g. for tests/automation selectors).
 - [x] **Duplicated default team names** — `src/chart/render.ts:34` hardcodes
       `"Home"/"Away"`; reuse `DEFAULT_HOME_NAME`/`DEFAULT_AWAY_NAME` from `src/app/match.ts`.
 - [x] **`parsePeriod` accepts leading zeros** — `src/domain/validate.ts:27-31`: `"01"` is a
       valid period. Decide and enforce one canonical form (`^[1-9]$`), consistent with the clock.
-- [ ] **Invalid new-game datetime silently becomes "now"** — `src/main.ts:101`
+- [x] **Invalid new-game datetime silently becomes "now"** — `src/main.ts:101`
       `parseDateTimeLocal(...) ?? new Date()` hides user input errors; the field is
       `datetime-local` so it should rarely happen, but consider validating and flagging instead.
 

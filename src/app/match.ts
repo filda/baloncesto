@@ -2,6 +2,7 @@ import { formatClock } from "../domain/clock";
 import { predict } from "../domain/predict";
 import type { Prediction, Snapshot } from "../domain/predict";
 import type { SnapshotInput } from "../domain/validate";
+import { parseDateTimeLocal } from "./format";
 import type { Coords, LocationStatus } from "./geo";
 
 /** Coordinates (lat and lon always together) and/or a place name; at least one of them is present. */
@@ -74,6 +75,38 @@ export function createGame(input: NewGameInput): Game {
     game.location = { place };
   }
   return game;
+}
+
+export const INVALID_DATE_MESSAGE = "Enter a valid date and time.";
+
+/** Raw values of the new-game form. */
+export interface NewGameFormValues {
+  homeName: string;
+  awayName: string;
+  /** `datetime-local` value, local time. */
+  dateTime: string;
+  place: string;
+}
+
+export type NewGameDraft =
+  | { ok: true; input: Omit<NewGameInput, "id"> }
+  | { ok: false; errors: { dateTime: string } };
+
+/** Validates the new-game form: an unparsable date is an error, never silently "now". */
+export function draftNewGame(form: NewGameFormValues, coords: Coords | null): NewGameDraft {
+  const createdAt = parseDateTimeLocal(form.dateTime);
+  if (!createdAt) return { ok: false, errors: { dateTime: INVALID_DATE_MESSAGE } };
+  return {
+    ok: true,
+    input: {
+      createdAt,
+      homeName: form.homeName,
+      awayName: form.awayName,
+      lat: coords?.lat,
+      lon: coords?.lon,
+      place: form.place,
+    },
+  };
 }
 
 /** "2026-10-19 20:05 · Place" (the place is omitted when absent). */

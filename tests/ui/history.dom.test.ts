@@ -71,10 +71,66 @@ describe("history", () => {
     click($(second, "button.history-open"));
     expect(handlers.onOpen).toHaveBeenCalledWith("b");
     click($(second, "button.history-delete"));
+    click($(second, "button.history-confirm-delete"));
     expect(handlers.onDelete).toHaveBeenCalledWith("b");
     click($(root, '[data-game-id="a"] button.history-open'));
     expect(handlers.onOpen).toHaveBeenLastCalledWith("a");
     expect(handlers.onOpen).toHaveBeenCalledTimes(2);
     expect(handlers.onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  describe("delete confirmation", () => {
+    const setup = () => {
+      history.setHidden(false);
+      history.render([gameWith([snap(1, 1)], "a"), gameWith([snap(1, 1)], "b")]);
+      return $(root, '[data-game-id="a"]');
+    };
+    const strip = (row: Element) => $(row, ".history-confirm");
+    const actions = (row: Element) => $(row, ":scope > .actions");
+
+    it("is hidden until Delete is clicked and never calls the handler by itself", () => {
+      const row = setup();
+      expect(strip(row).hidden).toBe(true);
+      expect(actions(row).hidden).toBe(false);
+      click($(row, "button.history-delete"));
+      expect(strip(row).hidden).toBe(false);
+      expect(actions(row).hidden).toBe(true);
+      expect(handlers.onDelete).not.toHaveBeenCalled();
+    });
+
+    it("asks DELETE THIS GAME? with DELETE and KEEP buttons", () => {
+      const row = setup();
+      click($(row, "button.history-delete"));
+      expect($(row, ".history-confirm-text").textContent).toBe("DELETE THIS GAME?");
+      expect($(row, ".history-confirm-delete").textContent).toBe("DELETE");
+      expect($(row, ".history-keep").textContent).toBe("KEEP");
+      expect(document.activeElement).toBe($(row, ".history-keep"));
+    });
+
+    it("KEEP restores the row buttons without deleting", () => {
+      const row = setup();
+      click($(row, "button.history-delete"));
+      click($(row, ".history-keep"));
+      expect(strip(row).hidden).toBe(true);
+      expect(actions(row).hidden).toBe(false);
+      expect(handlers.onDelete).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe($(row, "button.history-delete"));
+    });
+
+    it("DELETE calls the handler with the id of its own row", () => {
+      const row = setup();
+      click($(row, "button.history-delete"));
+      click($(row, ".history-confirm-delete"));
+      expect(handlers.onDelete).toHaveBeenCalledTimes(1);
+      expect(handlers.onDelete).toHaveBeenCalledWith("a");
+    });
+
+    it("confirms per row", () => {
+      const row = setup();
+      const other = $(root, '[data-game-id="b"]');
+      click($(row, "button.history-delete"));
+      expect(strip(other).hidden).toBe(true);
+      expect(actions(other).hidden).toBe(false);
+    });
   });
 });

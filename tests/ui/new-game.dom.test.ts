@@ -58,6 +58,26 @@ describe("new game form", () => {
     });
   });
 
+  it("shows and clears a date error with aria wiring", () => {
+    form.setDateError("Enter a valid date and time.");
+    expect($(root, "#n-datetime-error").textContent).toBe("Enter a valid date and time.");
+    expect(field("datetime").getAttribute("aria-invalid")).toBe("true");
+    expect(field("datetime").getAttribute("aria-describedby")).toBe("n-datetime-error");
+    form.setDateError("");
+    expect($(root, "#n-datetime-error").textContent).toBe("");
+    expect(field("datetime").hasAttribute("aria-invalid")).toBe(false);
+    expect(field("datetime").hasAttribute("aria-describedby")).toBe(false);
+  });
+
+  it("clears the date error when the date is edited or the form reopened", () => {
+    form.setDateError("bad");
+    type(field("datetime"), "2026-05-06T07:08");
+    expect($(root, "#n-datetime-error").textContent).toBe("");
+    form.setDateError("bad");
+    form.open("2026-05-06T07:08");
+    expect($(root, "#n-datetime-error").textContent).toBe("");
+  });
+
   it("cancel calls the handler", () => {
     click($(root, "#btn-cancel"));
     expect(handlers.onCancel).toHaveBeenCalledTimes(1);

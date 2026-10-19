@@ -11,10 +11,15 @@ import { registerSW } from "virtual:pwa-register";
 import { createStorageBanner } from "./app/storage-banner";
 import { mountUpdateBanner } from "./app/update-banner";
 import { formatVersion } from "./footer";
-import { parseDateTimeLocal, toDateTimeLocalValue } from "./app/format";
+import { toDateTimeLocalValue } from "./app/format";
 import { browserFetchJson, browserGetPosition, locate } from "./app/geo";
 import type { Coords } from "./app/geo";
-import { lastSnapshot, nextInputDefaults, shouldOpenNewFormOnStart } from "./app/match";
+import {
+  draftNewGame,
+  lastSnapshot,
+  nextInputDefaults,
+  shouldOpenNewFormOnStart,
+} from "./app/match";
 import { ROUTE_HASH, resolveHash } from "./app/router";
 import { safeLocalStorage } from "./app/storage";
 import { createStore } from "./app/store";
@@ -91,16 +96,14 @@ if (app) {
   }
 
   function startGame(form: NewGameForm): void {
+    const draft = draftNewGame(form, coords);
+    if (!draft.ok) {
+      view.setDateError(draft.errors.dateTime);
+      return;
+    }
     formSession++;
     resetPlaceLookup();
-    store.startGame({
-      createdAt: parseDateTimeLocal(form.dateTime) ?? new Date(),
-      homeName: form.homeName,
-      awayName: form.awayName,
-      lat: coords?.lat,
-      lon: coords?.lon,
-      place: form.place,
-    });
+    store.startGame(draft.input);
     showGame();
     location.hash = ROUTE_HASH.sheet;
   }
@@ -160,7 +163,6 @@ if (app) {
       location.hash = ROUTE_HASH.sheet;
     },
     onDelete(id) {
-      if (!confirm("Delete this game?")) return;
       if (store.remove(id)) {
         resetPlaceLookup();
         showGame();
