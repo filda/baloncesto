@@ -25,10 +25,10 @@ interface FieldSpec {
 }
 
 const FIELDS: FieldSpec[] = [
-  { field: "period", label: "Perioda", inputMode: "numeric", className: "" },
-  { field: "clock", label: "Čas", inputMode: "decimal", placeholder: "m:ss", className: "" },
-  { field: "home", label: "Domácí", inputMode: "numeric", className: "home" },
-  { field: "away", label: "Hosté", inputMode: "numeric", className: "away" },
+  { field: "period", label: "Period", inputMode: "numeric", className: "" },
+  { field: "clock", label: "Time", inputMode: "decimal", placeholder: "m:ss", className: "" },
+  { field: "home", label: "Home", inputMode: "numeric", className: "home" },
+  { field: "away", label: "Away", inputMode: "numeric", className: "away" },
 ];
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -48,27 +48,27 @@ function scoreText(value: number | undefined): string {
 
 export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   const header = el("header", "sheet-head");
-  header.append(el("h1", "printed", "Baloncesto · zápis"));
+  header.append(el("h1", "printed", "Baloncesto · scoresheet"));
 
   const scoreline = el("section", "scoreline");
-  scoreline.setAttribute("aria-label", "Aktuální skóre");
+  scoreline.setAttribute("aria-label", "Current score");
   const homeScore = el("span", "hand home");
   const awayScore = el("span", "hand away");
   const homeCell = el("div", "side");
-  homeCell.append(el("span", "printed", "Domácí"), homeScore);
+  homeCell.append(el("span", "printed", "Home"), homeScore);
   const awayCell = el("div", "side");
-  awayCell.append(el("span", "printed", "Hosté"), awayScore);
+  awayCell.append(el("span", "printed", "Away"), awayScore);
   scoreline.append(homeCell, el("span", "hand colon", ":"), awayCell);
 
   const estimate = el("p", "estimate");
-  const estimateLabel = el("span", "printed", "odhad konce");
+  const estimateLabel = el("span", "printed", "projected final");
   const estimateHome = el("span", "hand home");
   const estimateAway = el("span", "hand away");
   estimate.append(estimateLabel, " ", estimateHome, el("span", "hand", " : "), estimateAway);
 
   const chart = el("section", "chart");
   chart.id = "chart";
-  chart.setAttribute("aria-label", "Graf");
+  chart.setAttribute("aria-label", "Chart");
 
   const form = el("form", "entry");
   form.noValidate = true;
@@ -96,19 +96,19 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     errorNodes[spec.field] = error;
   }
   const actions = el("div", "actions");
-  const submit = el("button", "primary", "Zapsat");
+  const submit = el("button", "primary", "Record");
   submit.type = "submit";
-  const remove = el("button", "secondary", "Smazat poslední");
+  const remove = el("button", "secondary", "Undo last");
   remove.type = "button";
   actions.append(submit, remove);
   form.append(row, actions);
 
   const log = el("section", "log");
   const table = el("table");
-  const caption = el("caption", "printed", "Zapsané snímky");
+  const caption = el("caption", "printed", "Log");
   const head = el("thead");
   const headRow = el("tr");
-  for (const title of ["#", "Per.", "Čas", "Dom.", "Hos."]) {
+  for (const title of ["#", "Per.", "Time", "Home", "Away"]) {
     headRow.append(el("th", "printed", title));
   }
   head.append(headRow);

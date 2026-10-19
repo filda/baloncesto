@@ -40,28 +40,28 @@ export function validateSnapshot(input: SnapshotInput, previous?: Snapshot): Val
 
   const period = parsePeriod(input.period.trim());
   if (period === null) {
-    errors.push({ field: "period", message: `Perioda musí být celé číslo 1–${MAX_PERIOD}.` });
+    errors.push({ field: "period", message: `Period must be a whole number 1–${MAX_PERIOD}.` });
   }
 
   let remaining = parseClock(input.clock);
   if (remaining === null) {
-    errors.push({ field: "clock", message: "Čas zadej jako m:ss." });
+    errors.push({ field: "clock", message: "Enter time as m:ss." });
   } else if (period !== null) {
     const max = periodLength(period);
     if (remaining > max) {
-      const where = period <= REGULATION_PERIODS ? "V periodě" : "V prodloužení";
-      errors.push({ field: "clock", message: `${where} je max ${formatClock(max)}.` });
+      const where = period <= REGULATION_PERIODS ? "A period" : "Overtime";
+      errors.push({ field: "clock", message: `${where} lasts at most ${formatClock(max)}.` });
       remaining = null;
     }
   }
 
   const home = parseScore(input.home.trim());
   if (home === null) {
-    errors.push({ field: "home", message: `Skóre musí být celé číslo 0–${MAX_SCORE}.` });
+    errors.push({ field: "home", message: `Score must be a whole number 0–${MAX_SCORE}.` });
   }
   const away = parseScore(input.away.trim());
   if (away === null) {
-    errors.push({ field: "away", message: `Skóre musí být celé číslo 0–${MAX_SCORE}.` });
+    errors.push({ field: "away", message: `Score must be a whole number 0–${MAX_SCORE}.` });
   }
 
   if (
@@ -81,13 +81,13 @@ export function validateSnapshot(input: SnapshotInput, previous?: Snapshot): Val
       elapsedSeconds(snapshot.period, snapshot.remaining) <
       elapsedSeconds(previous.period, previous.remaining)
     ) {
-      errors.push({ field: "clock", message: "Čas nemůže jít zpět oproti předchozímu zápisu." });
+      errors.push({ field: "clock", message: "Time cannot go back from the previous entry." });
     }
     if (snapshot.home < previous.home) {
-      errors.push({ field: "home", message: "Skóre nemůže klesnout." });
+      errors.push({ field: "home", message: "Score cannot go down." });
     }
     if (snapshot.away < previous.away) {
-      errors.push({ field: "away", message: "Skóre nemůže klesnout." });
+      errors.push({ field: "away", message: "Score cannot go down." });
     }
     if (errors.length > 0) return { ok: false, errors };
   }

@@ -3,11 +3,11 @@ import { validateSnapshot } from "../../src/domain/validate";
 import type { SnapshotInput } from "../../src/domain/validate";
 
 const valid: SnapshotInput = { period: "2", clock: "5:30", home: "30", away: "24" };
-const PERIOD_MSG = "Perioda musí být celé číslo 1–9.";
-const CLOCK_MSG = "Čas zadej jako m:ss.";
-const SCORE_MSG = "Skóre musí být celé číslo 0–300.";
-const BACK_MSG = "Čas nemůže jít zpět oproti předchozímu zápisu.";
-const DROP_MSG = "Skóre nemůže klesnout.";
+const PERIOD_MSG = "Period must be a whole number 1–9.";
+const CLOCK_MSG = "Enter time as m:ss.";
+const SCORE_MSG = "Score must be a whole number 0–300.";
+const BACK_MSG = "Time cannot go back from the previous entry.";
+const DROP_MSG = "Score cannot go down.";
 
 function input(patch: Partial<SnapshotInput>): SnapshotInput {
   return { ...valid, ...patch };
@@ -62,7 +62,7 @@ describe("validateSnapshot", () => {
     it("rejects 10:01 in regulation", () => {
       expect(validateSnapshot(input({ period: "4", clock: "10:01" }))).toEqual({
         ok: false,
-        errors: [{ field: "clock", message: "V periodě je max 10:00." }],
+        errors: [{ field: "clock", message: "A period lasts at most 10:00." }],
       });
     });
 
@@ -73,11 +73,11 @@ describe("validateSnapshot", () => {
       });
       expect(validateSnapshot(input({ period: "5", clock: "5:01" }))).toEqual({
         ok: false,
-        errors: [{ field: "clock", message: "V prodloužení je max 5:00." }],
+        errors: [{ field: "clock", message: "Overtime lasts at most 5:00." }],
       });
       expect(validateSnapshot(input({ period: "9", clock: "5:01" }))).toEqual({
         ok: false,
-        errors: [{ field: "clock", message: "V prodloužení je max 5:00." }],
+        errors: [{ field: "clock", message: "Overtime lasts at most 5:00." }],
       });
     });
 

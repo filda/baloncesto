@@ -24,10 +24,10 @@ function points(list: Point[]): string {
 
 export function chartLabel(snapshots: Snapshot[], home: TeamSeries, away: TeamSeries): string {
   const last = snapshots.at(-1);
-  if (!last) return "Graf skóre: zatím žádný zápis";
-  const base = `Graf skóre: domácí ${last.home}, hosté ${last.away}`;
+  if (!last) return "Score chart: no entries yet";
+  const base = `Score chart: home ${last.home}, away ${last.away}`;
   if (home.finalLabel === null || away.finalLabel === null) return base;
-  return `${base}, odhad konce ${home.finalLabel} : ${away.finalLabel}`;
+  return `${base}, projected final ${home.finalLabel} : ${away.finalLabel}`;
 }
 
 /** Vertical positions of the two final labels, nudged apart when they would overlap. */
@@ -144,7 +144,7 @@ export function renderChart(container: HTMLElement, snapshots: Snapshot[]): void
           "font-size": 12,
           "letter-spacing": "0.14em",
         },
-        "ZAPIŠ PRVNÍ STAV",
+        "RECORD THE FIRST SCORE",
       ),
     );
   }
