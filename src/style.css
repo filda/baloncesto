@@ -438,3 +438,30 @@ footer {
 .newgame .actions button {
   min-height: 44px;
 }
+
+/* Update prompt: a thin printed strip at the bottom, dismissible. */
+.update-banner {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--rule);
+  background: var(--paper);
+  font-size: 0.65rem;
+}
+
+.update-banner p {
+  flex: 1;
+  margin: 0;
+  padding: 0 10px;
+  letter-spacing: 0.14em;
+}
+
+.update-banner button {
+  flex: none;
+  padding: 10px 12px;
+  border-left: 1px solid var(--rule);
+  font-size: 0.65rem;
+}

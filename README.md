@@ -2,6 +2,8 @@
 
 A simple extrapolation predictor for basketball game results. From repeatedly entered scoreboard snapshots (period, remaining time, score) it estimates the final score and draws a chart. Games are stored in localStorage. See [docs/project-plan.md](docs/project-plan.md) for details.
 
+The app is installable (PWA) and works offline.
+
 ## Commands
 
 ```sh

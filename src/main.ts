@@ -7,6 +7,8 @@ import "@fontsource/ibm-plex-mono/latin-ext-400.css";
 import "@fontsource/ibm-plex-mono/latin-500.css";
 import "@fontsource/ibm-plex-mono/latin-ext-500.css";
 import "./style.css";
+import { registerSW } from "virtual:pwa-register";
+import { mountUpdateBanner } from "./app/update-banner";
 import { formatVersion } from "./footer";
 import { parseDateTimeLocal, toDateTimeLocalValue } from "./app/format";
 import { browserFetchJson, browserGetPosition, locate } from "./app/geo";
@@ -183,3 +185,9 @@ if (app) {
   showGame();
   route();
 }
+
+const updateSW = registerSW({
+  onNeedRefresh() {
+    mountUpdateBanner(document.body, () => void updateSW(true));
+  },
+});
