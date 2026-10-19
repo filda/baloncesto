@@ -222,7 +222,11 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
       const meta = el("p", "history-meta");
       meta.append(
         el("span", "printed history-date", formatDateTime(game.createdAt)),
-        el("span", "printed history-count", `${game.snapshots.length} entries`),
+        el(
+          "span",
+          "printed history-count",
+          `${game.snapshots.length} ${game.snapshots.length === 1 ? "entry" : "entries"}`,
+        ),
       );
       const teams = el("p", "history-teams");
       teams.append(
