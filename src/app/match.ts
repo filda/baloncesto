@@ -83,8 +83,10 @@ export function addSnapshot<T extends HasSnapshots>(game: T, snapshot: Snapshot)
   return { ...game, snapshots: [...game.snapshots, snapshot] };
 }
 
-export function removeLastSnapshot<T extends HasSnapshots>(game: T): T {
-  return { ...game, snapshots: game.snapshots.slice(0, -1) };
+/** Removes the snapshot at `index`; an out-of-range or non-integer index returns the game unchanged. */
+export function removeSnapshotAt<T extends HasSnapshots>(game: T, index: number): T {
+  if (!Number.isInteger(index) || index < 0 || index >= game.snapshots.length) return game;
+  return { ...game, snapshots: game.snapshots.filter((_, i) => i !== index) };
 }
 
 export function lastSnapshot(game: HasSnapshots): Snapshot | null {

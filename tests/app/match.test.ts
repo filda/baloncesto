@@ -8,7 +8,7 @@ import {
   lastSnapshot,
   newGame,
   nextInputDefaults,
-  removeLastSnapshot,
+  removeSnapshotAt,
 } from "../../src/app/match";
 
 const a = { period: 1, remaining: 300, home: 10, away: 8 };
@@ -46,13 +46,22 @@ describe("game helpers", () => {
     expect(lastSnapshot(two)).toBe(b);
   });
 
-  it("removes the last snapshot immutably", () => {
+  it("removes the snapshot at an index immutably", () => {
+    const c = { period: 3, remaining: 100, home: 50, away: 40 };
+    const three = addSnapshot(addSnapshot(addSnapshot(empty(), a), b), c);
+    expect(removeSnapshotAt(three, 0).snapshots).toEqual([b, c]);
+    expect(removeSnapshotAt(three, 1).snapshots).toEqual([a, c]);
+    expect(removeSnapshotAt(three, 2).snapshots).toEqual([a, b]);
+    expect(removeSnapshotAt(three, 1).id).toBe("g1");
+    expect(three.snapshots).toEqual([a, b, c]);
+  });
+
+  it("leaves the game unchanged for an out-of-range index", () => {
     const two = addSnapshot(addSnapshot(empty(), a), b);
-    const one = removeLastSnapshot(two);
-    expect(one.snapshots).toEqual([a]);
-    expect(one.id).toBe("g1");
-    expect(two.snapshots).toEqual([a, b]);
-    expect(removeLastSnapshot(empty()).snapshots).toEqual([]);
+    expect(removeSnapshotAt(two, 2)).toBe(two);
+    expect(removeSnapshotAt(two, -1)).toBe(two);
+    expect(removeSnapshotAt(two, 0.5)).toBe(two);
+    expect(removeSnapshotAt(empty(), 0).snapshots).toEqual([]);
   });
 
   it("predicts from the last snapshot", () => {

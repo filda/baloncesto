@@ -1,4 +1,5 @@
 import { formatClock } from "../domain/clock";
+import { formatClockInput } from "../domain/clock-input";
 import { roundScore } from "../domain/predict";
 import { renderChart } from "../chart/render";
 import type { FieldError, Field, SnapshotInput } from "../domain/validate";
@@ -28,7 +29,8 @@ export interface NewGameForm {
 
 export interface ViewHandlers {
   onSubmit(input: SnapshotInput): void;
-  onRemoveLast(): void;
+  /** Deletes the log entry at `index` (0-based, chronological order). */
+  onRemoveEntry(index: number): void;
   onNew(): void;
   onTeamName(side: Side, value: string): void;
   onStart(form: NewGameForm): void;
@@ -64,7 +66,7 @@ interface FieldSpec {
 
 const FIELDS: FieldSpec[] = [
   { field: "period", label: "Period", inputMode: "numeric", className: "" },
-  { field: "clock", label: "Time", inputMode: "decimal", placeholder: "m:ss", className: "" },
+  { field: "clock", label: "Time", inputMode: "numeric", placeholder: "m:ss", className: "" },
   { field: "home", label: "Home", inputMode: "numeric", className: "home" },
   { field: "away", label: "Away", inputMode: "numeric", className: "away" },
 ];
@@ -99,14 +101,9 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   nav.append(newButton, historyButton, backButton);
   header.append(el("h1", "printed", "Baloncesto · scoresheet"), nav);
 
-  const scoreline = el("section", "scoreline");
-  scoreline.setAttribute("aria-label", "Current score");
-  const homeScore = el("span", "hand home");
-  const awayScore = el("span", "hand away");
   const teamInputs = {} as Record<Side, HTMLInputElement>;
-  const cells = {} as Record<Side, HTMLElement>;
   for (const side of ["home", "away"] as const) {
-    const input = el("input", "printed team-name");
+    const input = el("input", `printed team-name ${side}`);
     input.id = `f-${side}-name`;
     input.name = `${side}Name`;
     input.type = "text";
@@ -116,21 +113,19 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     input.setAttribute("aria-label", `${side === "home" ? "Home" : "Away"} team name`);
     input.addEventListener("change", () => handlers.onTeamName(side, input.value));
     teamInputs[side] = input;
-    cells[side] = el("div", "side");
   }
-  cells.home.append(teamInputs.home, homeScore);
-  cells.away.append(teamInputs.away, awayScore);
-  const homeCell = cells.home;
-  const awayCell = cells.away;
-  scoreline.append(homeCell, el("span", "hand colon", ":"), awayCell);
 
   const info = el("p", "printed sheet-info");
 
-  const estimate = el("p", "estimate");
-  const estimateLabel = el("span", "printed", "projected final");
+  const estimate = el("section", "estimate");
+  estimate.id = "estimate";
+  estimate.setAttribute("aria-label", "Projected final");
   const estimateHome = el("span", "hand home");
   const estimateAway = el("span", "hand away");
-  estimate.append(estimateLabel, " ", estimateHome, el("span", "hand", " : "), estimateAway);
+  const estimateColon = el("span", "hand colon", " : ");
+  const estimateScore = el("span", "estimate-score");
+  estimateScore.append(estimateHome, estimateColon, estimateAway);
+  estimate.append(teamInputs.home, estimateScore, teamInputs.away);
 
   const chart = el("section", "chart");
   chart.id = "chart";
@@ -166,10 +161,37 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   const actions = el("div", "actions");
   const submit = el("button", "primary", "Record");
   submit.type = "submit";
-  const remove = el("button", "secondary", "Undo last");
-  remove.type = "button";
-  actions.append(submit, remove);
+  submit.id = "btn-record";
+  actions.append(submit);
   form.append(row, actions);
+
+  // Select the existing text on focus so typing overwrites it. On touch devices the tap's
+  // mouseup/click would collapse the selection again, so select once more after the tap and
+  // swallow the first mouseup following the focus.
+  for (const input of Object.values(inputs)) {
+    let justFocused = false;
+    input.addEventListener("focus", () => {
+      justFocused = true;
+      input.select();
+      requestAnimationFrame(() => input.select());
+      setTimeout(() => {
+        input.select();
+        justFocused = false;
+      }, 0);
+    });
+    input.addEventListener("mouseup", (event) => {
+      if (justFocused) event.preventDefault();
+    });
+    input.addEventListener("blur", () => {
+      justFocused = false;
+    });
+  }
+  inputs.clock.addEventListener("input", () => {
+    const formatted = formatClockInput(inputs.clock.value);
+    if (formatted === inputs.clock.value) return;
+    inputs.clock.value = formatted;
+    inputs.clock.setSelectionRange(formatted.length, formatted.length);
+  });
 
   const log = el("section", "log");
   const table = el("table");
@@ -179,6 +201,9 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   for (const title of ["#", "Per.", "Time", "Home", "Away"]) {
     headRow.append(el("th", "printed", title));
   }
+  const deleteHead = el("th", "printed");
+  deleteHead.setAttribute("aria-label", "Delete");
+  headRow.append(deleteHead);
   head.append(headRow);
   const body = el("tbody");
   table.append(caption, head, body);
@@ -254,7 +279,7 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
   });
   cancel.addEventListener("click", () => handlers.onCancel());
 
-  const sheet = [scoreline, info, estimate, chart, form, log];
+  const sheet = [info, form, chart, estimate, log];
   const footer = document.querySelector("footer");
   root.replaceChildren(header, ...sheet, history, newGameSection);
   if (footer) root.append(footer);
@@ -272,7 +297,6 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     event.preventDefault();
     handlers.onSubmit(readInput());
   });
-  remove.addEventListener("click", () => handlers.onRemoveLast());
   newButton.addEventListener("click", () => handlers.onNew());
   historyButton.addEventListener("click", () => handlers.onHistory());
   backButton.addEventListener("click", () => handlers.onBack());
@@ -291,13 +315,10 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
     scoreLabels.home.textContent = game.homeName;
     scoreLabels.away.textContent = game.awayName;
     info.textContent = gameInfoLine(game, formatDateTime);
-    const last = lastSnapshot(game);
-    homeScore.textContent = scoreText(last?.home);
-    awayScore.textContent = scoreText(last?.away);
-
     const prediction = currentPrediction(game);
     estimateHome.textContent = prediction ? String(roundScore(prediction.home)) : "—";
-    estimateAway.textContent = prediction ? String(roundScore(prediction.away)) : "—";
+    estimateAway.textContent = prediction ? String(roundScore(prediction.away)) : "";
+    estimateColon.hidden = estimateAway.hidden = !prediction;
 
     for (const spec of FIELDS) {
       const message = errors.find((e) => e.field === spec.field)?.message ?? "";
@@ -313,16 +334,21 @@ export function mountView(root: HTMLElement, handlers: ViewHandlers): View {
       }
     }
 
-    remove.disabled = game.snapshots.length === 0;
-
     const rows = game.snapshots.map((snapshot, index) => {
       const tr = el("tr");
+      const del = el("button", "log-delete", "×");
+      del.type = "button";
+      del.setAttribute("aria-label", `Delete entry ${index + 1}`);
+      del.addEventListener("click", () => handlers.onRemoveEntry(index));
+      const delCell = el("td", "log-action");
+      delCell.append(del);
       tr.append(
         el("td", "printed", String(index + 1)),
         el("td", "hand", String(snapshot.period)),
         el("td", "hand", formatClock(snapshot.remaining)),
         el("td", "hand home", String(snapshot.home)),
         el("td", "hand away", String(snapshot.away)),
+        delCell,
       );
       return tr;
     });

@@ -22,7 +22,7 @@ import {
   newGame,
   nextInputDefaults,
   normalizeTeamName,
-  removeLastSnapshot,
+  removeSnapshotAt,
 } from "./app/match";
 import type { Game } from "./app/match";
 import {
@@ -135,8 +135,8 @@ if (app) {
       showGame();
       view.focusHome();
     },
-    onRemoveLast() {
-      game = removeLastSnapshot(game);
+    onRemoveEntry(index) {
+      game = removeSnapshotAt(game, index);
       persist();
       showGame();
     },
