@@ -111,7 +111,7 @@ also the largest and least structured file.
       `jsdom`) and tests for: render/log/errors wiring, submit flow, screen switching, the clock
       input formatting loop. Optionally a minimal Playwright smoke test (record entry → prediction
       visible → reload persists) since this is a data-entry PWA.
-- [ ] **`.gitignore` is stock Vite boilerplate** — `.gitignore`
+- [x] **`.gitignore` is stock Vite boilerplate** — `.gitignore`
       ~130 lines of Nuxt/Gatsby/FuseBox/Docusaurus noise. Reduce to what the project needs
       (`node_modules/`, `dist/`, `reports/`, `.stryker-tmp/`, `.idea/`, logs, `.env*`).
 - [x] **Missing `engines` / Node pinning** — `package.json`
@@ -121,7 +121,7 @@ also the largest and least structured file.
 - [x] **Lint scope omits config files** — `package.json:11`
       `oxlint src tests` skips `vite.config.ts`, `vitest.config.ts`, `stryker.config.mjs`,
       `pwa-assets.config.ts`. Include them.
-- [ ] **Mutation testing only manual** — `.github/workflows/mutation-testing.yml`
+- [x] **Mutation testing only manual** (won't do — plan keeps mutation tests on request) — `.github/workflows/mutation-testing.yml`
       Fine per plan, but add a weekly `schedule` trigger (or run on PRs touching `src/domain`) so
       the mutation score cannot silently drift.
 - [x] **Manifest hardening** — `vite.config.ts:24-46`
