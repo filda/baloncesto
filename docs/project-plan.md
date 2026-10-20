@@ -26,9 +26,12 @@ Games are stored in localStorage.
 
 ### Prediction model
 
-- Linear: team pace = points / elapsed time (whole game); prediction = current points + pace × remaining time.
-- When elapsed time is 0, no prediction is shown (known data only).
-- Prediction range (≈ 95 % interval): remaining points are treated as a random process of scoring events worth ~2 points, so with expected remaining points `E = pace × remaining time` the final score is `prediction ± 1.96 × √(2 × E)`; the lower bound is never below the current score. The range narrows towards the end of the game and is drawn as a light band around the dashed prediction line, with the min–max finals labelled at the end.
+- Possession based, so early baskets cannot extrapolate to impossible scores:
+  - Each team has ~72 possessions per 40 minutes (FIBA average), i.e. `POSSESSION_RATE = 72 / 2400` per second; remaining possessions = rate × remaining time (overtime included).
+  - Points per possession start from a league prior of `1.0` and shift towards the team's observed rate: `ppp = (points + 1.0 × rate × 600) / (rate × (elapsed + 600))` — the prior weighs as much as one played period, so after one minute the projection stays near 72 and after the first period it is half observed, half prior.
+  - Prediction = current points + remaining possessions × ppp.
+- When elapsed time is 0, the prediction equals the prior (≈ 72 per team); it is shown once there is at least one snapshot.
+- Prediction range (min–max): low = current points (the team may not score again), high = current points + remaining possessions × max(1.5, ppp) (a realistic hot streak). The range narrows to the current score at the final buzzer and is drawn as a light band from the current score up to the high bound, around the dashed prediction line, with the min–max finals labelled at the end.
 - Output: curves + predicted final score (e.g. "82 : 76") at the end of the chart.
 - The calculation is a pure function in its own module, fully covered by unit tests.
 

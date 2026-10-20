@@ -26,7 +26,7 @@ describe("range band", () => {
     for (const band of bands()) {
       expect(band.getAttribute("fill-opacity")).toBe("0.12");
       expect(band.getAttribute("stroke")).toBe("none");
-      expect(band.getAttribute("d")).toMatch(/^M[\d.]+,[\d.-]+(L[\d.]+,[\d.-]+){25}Z$/);
+      expect(band.getAttribute("d")).toMatch(/^M[\d.]+,[\d.-]+(L[\d.]+,[\d.-]+){3}Z$/);
     }
   });
 
@@ -43,8 +43,15 @@ describe("range band", () => {
     renderChart(container, []);
     expect(bands()).toHaveLength(0);
     expect(rangeLabels()).toHaveLength(0);
+  });
+
+  it("draws the prior's band for a snapshot at 0:00 elapsed", () => {
     renderChart(container, [{ period: 1, remaining: 600, home: 0, away: 0 }]);
-    expect(bands()).toHaveLength(0);
+    expect(bands()).toHaveLength(2);
+    expect(rangeLabels().map((l) => l.textContent)).toEqual(["0–108", "0–108"]);
+    expect(container.querySelector("svg")?.getAttribute("aria-label")).toBe(
+      "Score chart: Home 0, Away 0, projected final 72 : 72 (home 0–108, away 0–108)",
+    );
   });
 });
 
@@ -52,7 +59,7 @@ describe("range labels", () => {
   it("prints the min–max in the team colour next to each final", () => {
     renderChart(container, worked);
     const labels = rangeLabels();
-    expect(labels.map((l) => l.textContent)).toEqual(["68–101", "63–95"]);
+    expect(labels.map((l) => l.textContent)).toEqual(["48–94", "45–91"]);
     expect(labels.map((l) => l.getAttribute("fill"))).toEqual(["var(--home)", "var(--away)"]);
     expect(labels.every((l) => l.getAttribute("text-anchor") === "end")).toBe(true);
     expect(labels.every((l) => l.getAttribute("x") === "336")).toBe(true);
@@ -65,7 +72,7 @@ describe("range labels", () => {
     );
     const [homeFinal, awayFinal] = finals.map((t) => Number(t.getAttribute("y")));
     const [homeRange, awayRange] = rangeLabels().map((t) => Number(t.getAttribute("y")));
-    // home 84 is above away 79 on screen (smaller y)
+    // home 83 is above away 78 on screen (smaller y)
     expect(homeRange).toBeLessThan(homeFinal ?? 0);
     expect(awayRange).toBeGreaterThan(awayFinal ?? 0);
   });
@@ -73,7 +80,7 @@ describe("range labels", () => {
   it("adds the ranges to the aria-label", () => {
     renderChart(container, worked);
     expect(container.querySelector("svg")?.getAttribute("aria-label")).toBe(
-      "Score chart: Home 48, Away 45, projected final 84 : 79 (home 68–101, away 63–95)",
+      "Score chart: Home 48, Away 45, projected final 83 : 78 (home 48–94, away 45–91)",
     );
   });
 });

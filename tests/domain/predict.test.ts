@@ -1,39 +1,59 @@
 import { describe, expect, it } from "vitest";
 import {
-  POINTS_PER_EVENT,
-  Z,
-  finalRange,
-  halfWidth,
+  HOT_PPP,
+  POSSESSIONS_PER_40,
+  POSSESSION_RATE,
+  PRIOR_PPP,
+  PRIOR_WEIGHT_SECONDS,
   predict,
   predictRange,
   roundScore,
 } from "../../src/domain/predict";
 
+describe("constants", () => {
+  it("pins the possession model", () => {
+    expect(POSSESSIONS_PER_40).toBe(72);
+    expect(POSSESSION_RATE).toBe(72 / 2400);
+    expect(POSSESSION_RATE).toBeCloseTo(0.03, 12);
+    expect(PRIOR_PPP).toBe(1.0);
+    expect(PRIOR_WEIGHT_SECONDS).toBe(600);
+    expect(HOT_PPP).toBe(1.5);
+  });
+});
+
 describe("predict", () => {
-  it("projects linearly in regulation", () => {
-    expect(predict({ period: 2, remaining: 300, home: 30, away: 24 })).toEqual({
-      elapsed: 900,
-      end: 2400,
-      home: 80,
-      away: 64,
-    });
+  it("case a: stays near the prior after one minute (period 1, 9:00, 3 : 0)", () => {
+    // elapsed 60, end 2400; rate 0.03; prior points = 1.0 × 0.03 × 600 = 18
+    // home ppp = (3 + 18) / (0.03 × 660) = 21 / 19.8 ≈ 1.0606; remaining possessions = 0.03 × 2340 = 70.2
+    // home = 3 + 70.2 × 21 / 19.8 ≈ 77.4545; away ppp = 18 / 19.8 ≈ 0.9091 → 63.8182
+    const result = predict({ period: 1, remaining: 540, home: 3, away: 0 });
+    expect(result.elapsed).toBe(60);
+    expect(result.end).toBe(2400);
+    expect(result.home).toBeCloseTo(77.4545454545, 8);
+    expect(result.away).toBeCloseTo(63.8181818182, 8);
+    expect(roundScore(result.home)).toBe(77);
+    expect(roundScore(result.away)).toBe(64);
   });
 
-  it("returns null when nothing has been played", () => {
-    expect(predict({ period: 1, remaining: 600, home: 0, away: 0 })).toBeNull();
-    expect(predict({ period: 1, remaining: 600, home: 5, away: 3 })).toBeNull();
+  it("case b: worked example (period 3, 7:12, 48 : 45)", () => {
+    // elapsed 1368, end 2400; remaining possessions = 0.03 × 1032 = 30.96
+    // denominator 0.03 × 1968 = 59.04; home ppp = 66 / 59.04 ≈ 1.1179 → 48 + 30.96 × 1.1179 ≈ 82.6098
+    // away ppp = 63 / 59.04 ≈ 1.0671 → 45 + 30.96 × 1.0671 ≈ 78.0366
+    const result = predict({ period: 3, remaining: 432, home: 48, away: 45 });
+    expect(result.elapsed).toBe(1368);
+    expect(result.home).toBeCloseTo(48 + (30.96 * 66) / 59.04, 10);
+    expect(result.away).toBeCloseTo(45 + (30.96 * 63) / 59.04, 10);
+    expect(result.home).toBeCloseTo(82.6098, 4);
+    expect(result.away).toBeCloseTo(78.0366, 4);
   });
 
-  it("predicts zero for a team with zero points", () => {
-    expect(predict({ period: 1, remaining: 300, home: 0, away: 10 })).toEqual({
-      elapsed: 300,
-      end: 2400,
-      home: 0,
-      away: 80,
-    });
+  it("case f: a snapshot at 0:00 elapsed is the prior", () => {
+    // ppp = 18 / (0.03 × 600) = 1; possessions = 72 → 72 for either score of 0
+    const result = predict({ period: 1, remaining: 600, home: 0, away: 0 });
+    expect(result).toEqual({ elapsed: 0, end: 2400, home: 72, away: 72 });
   });
 
-  it("equals the current score at the end of period 4", () => {
+  it("case c: equals the current score at the final buzzer", () => {
     expect(predict({ period: 4, remaining: 0, home: 82, away: 76 })).toEqual({
       elapsed: 2400,
       end: 2400,
@@ -42,39 +62,30 @@ describe("predict", () => {
     });
   });
 
-  it("projects to the end of the first overtime", () => {
-    // elapsed 2400 + 100 = 2500, end 2700, left 200
-    expect(predict({ period: 5, remaining: 200, home: 100, away: 50 })).toEqual({
-      elapsed: 2500,
-      end: 2700,
-      home: 100 + (100 / 2500) * 200,
-      away: 50 + (50 / 2500) * 200,
-    });
+  it("case e: projects to the end of the first overtime", () => {
+    // elapsed 2500, end 2700; remaining possessions = 0.03 × 200 = 6
+    // denominator 0.03 × 3100 = 93; home ppp = (100 + 18) / 93; away ppp = (50 + 18) / 93
+    const result = predict({ period: 5, remaining: 200, home: 100, away: 50 });
+    expect(result.elapsed).toBe(2500);
+    expect(result.end).toBe(2700);
+    expect(result.home).toBeCloseTo(100 + (6 * 118) / 93, 10);
+    expect(result.away).toBeCloseTo(50 + (6 * 68) / 93, 10);
   });
 
   it("projects to the end of the current (second) overtime", () => {
-    // elapsed 2700 + 150 = 2850, end 3000, left 150
-    expect(predict({ period: 6, remaining: 150, home: 114, away: 57 })).toEqual({
-      elapsed: 2850,
-      end: 3000,
-      home: 114 + (114 / 2850) * 150,
-      away: 57 + (57 / 2850) * 150,
-    });
+    // elapsed 2850, end 3000; possessions = 4.5; denominator 0.03 × 3450 = 103.5
+    const result = predict({ period: 6, remaining: 150, home: 114, away: 57 });
+    expect(result.elapsed).toBe(2850);
+    expect(result.end).toBe(3000);
+    expect(result.home).toBeCloseTo(114 + (4.5 * 132) / 103.5, 10);
+    expect(result.away).toBeCloseTo(57 + (4.5 * 75) / 103.5, 10);
   });
 
-  it("at the start of overtime keeps the regulation pace", () => {
-    const result = predict({ period: 5, remaining: 300, home: 80, away: 60 });
-    expect(result).toEqual({ elapsed: 2400, end: 2700, home: 90, away: 67.5 });
-  });
-
-  it("returns unrounded floats", () => {
-    const result = predict({ period: 1, remaining: 500, home: 7, away: 3 });
-    expect(result?.elapsed).toBe(100);
-    expect(result?.home).toBeCloseTo(168, 10);
-    expect(result?.away).toBeCloseTo(72, 10);
-    const odd = predict({ period: 1, remaining: 400, home: 7, away: 3 });
-    expect(odd?.home).toBeCloseTo(7 + (7 / 200) * 2200, 10);
-    expect(Number.isInteger(odd?.home)).toBe(false);
+  it("gives a hot team more than a cold one and never less than the current score", () => {
+    const result = predict({ period: 2, remaining: 300, home: 50, away: 0 });
+    expect(result.home).toBeGreaterThan(result.away);
+    expect(result.away).toBeGreaterThan(0);
+    expect(result.home).toBeGreaterThanOrEqual(50);
   });
 
   it("propagates RangeError for invalid snapshots", () => {
@@ -95,76 +106,73 @@ describe("roundScore", () => {
   });
 });
 
-describe("constants", () => {
-  it("uses a 95 % interval and two-point scoring events", () => {
-    expect(Z).toBe(1.96);
-    expect(POINTS_PER_EVENT).toBe(2);
-  });
-});
-
-describe("halfWidth", () => {
-  it("is Z × √(2 × expected)", () => {
-    expect(halfWidth(0)).toBe(0);
-    expect(halfWidth(50)).toBeCloseTo(19.6, 10);
-    expect(halfWidth(8)).toBeCloseTo(7.84, 10);
-  });
-});
-
 describe("predictRange", () => {
-  it("returns null when nothing has been played", () => {
-    expect(predictRange({ period: 1, remaining: 600, home: 5, away: 3 })).toBeNull();
+  it("case a: low is the current score, high uses 1.5 points per possession", () => {
+    // possessions 70.2; both ppp < 1.5 → high = points + 70.2 × 1.5
+    const range = predictRange({ period: 1, remaining: 540, home: 3, away: 0 });
+    expect(range.home.low).toBe(3);
+    expect(range.home.high).toBeCloseTo(108.3, 10);
+    expect(range.away.low).toBe(0);
+    expect(range.away.high).toBeCloseTo(105.3, 10);
+    expect([range.home.high, range.away.high].map(roundScore)).toEqual([108, 105]);
   });
 
-  it("matches the formula for the worked example (period 3, 7:12, 48 : 45)", () => {
+  it("case b: worked example (period 3, 7:12, 48 : 45)", () => {
+    // possessions 30.96, ppp 1.1179 / 1.0671 < 1.5 → high = 48 + 46.44, 45 + 46.44
     const range = predictRange({ period: 3, remaining: 432, home: 48, away: 45 });
-    // elapsed 1368, end 2400, left 1032
-    const eHome = (48 / 1368) * 1032;
-    const eAway = (45 / 1368) * 1032;
-    const halfHome = 1.96 * Math.sqrt(2 * eHome);
-    const halfAway = 1.96 * Math.sqrt(2 * eAway);
-    expect(range?.home.low).toBeCloseTo(48 + eHome - halfHome, 10);
-    expect(range?.home.high).toBeCloseTo(48 + eHome + halfHome, 10);
-    expect(range?.away.low).toBeCloseTo(45 + eAway - halfAway, 10);
-    expect(range?.away.high).toBeCloseTo(45 + eAway + halfAway, 10);
-    expect(roundScore(48 + eHome)).toBe(84);
-    expect(roundScore(45 + eAway)).toBe(79);
-    expect([range?.home.low, range?.home.high].map((v) => roundScore(v ?? 0))).toEqual([68, 101]);
-    expect([range?.away.low, range?.away.high].map((v) => roundScore(v ?? 0))).toEqual([63, 95]);
+    expect(range.home.low).toBe(48);
+    expect(range.home.high).toBeCloseTo(94.44, 10);
+    expect(range.away.low).toBe(45);
+    expect(range.away.high).toBeCloseTo(91.44, 10);
   });
 
-  it("gives an exact band for a simple case", () => {
-    // elapsed 600, end 2400, 20 points -> E = 60, half = 1.96 × √120
-    const range = predictRange({ period: 1, remaining: 0, home: 20, away: 10 });
-    expect(range?.home.low).toBeCloseTo(80 - 1.96 * Math.sqrt(120), 10);
-    expect(range?.home.high).toBeCloseTo(80 + 1.96 * Math.sqrt(120), 10);
-    expect(range?.away.low).toBeCloseTo(40 - 1.96 * Math.sqrt(60), 10);
-    expect(range?.away.high).toBeCloseTo(40 + 1.96 * Math.sqrt(60), 10);
-  });
-
-  it("collapses to the current score at the final buzzer", () => {
+  it("case c: collapses to the current score at the final buzzer", () => {
     expect(predictRange({ period: 4, remaining: 0, home: 82, away: 76 })).toEqual({
       home: { low: 82, high: 82 },
       away: { low: 76, high: 76 },
     });
   });
 
-  it("is a single point for a team with zero points", () => {
-    const range = predictRange({ period: 1, remaining: 300, home: 0, away: 10 });
-    expect(range?.home).toEqual({ low: 0, high: 0 });
-    expect(range?.away.high).toBeGreaterThan(80);
+  it("case d: a hot team's high uses its own points per possession", () => {
+    // period 1, 0:00 left: elapsed 600, possessions 0.03 × 1800 = 54; denominator 0.03 × 1200 = 36
+    // 60 points: ppp = 78 / 36 ≈ 2.1667 > 1.5; predicted = high = 60 + 54 × 78 / 36 = 177
+    const snapshot = { period: 1, remaining: 0, home: 60, away: 10 };
+    const range = predictRange(snapshot);
+    const prediction = predict(snapshot);
+    expect(prediction.home).toBeCloseTo(177, 10);
+    expect(range.home.high).toBeCloseTo(177, 10);
+    expect(range.home.high).toBeCloseTo(prediction.home, 10);
+    // 10 points: ppp = 28 / 36 < 1.5 → high = 10 + 54 × 1.5 = 91
+    expect(range.away.high).toBeCloseTo(91, 10);
+    expect(range.away.high).toBeGreaterThan(prediction.away);
   });
 
-  it("never goes below the current score", () => {
-    // 2 points after 599 s: predicted ≈ 8, half ≈ 6.4 → raw low ≈ 1.6 < 2
-    const range = predictRange({ period: 1, remaining: 1, home: 2, away: 2 });
-    expect(range?.home.low).toBe(2);
-    expect(finalRange(10, 12).low).toBe(10);
-    expect(finalRange(10, 12).high).toBeCloseTo(12 + 1.96 * 2, 10);
+  it("case e: overtime period 5", () => {
+    // elapsed 2500, possessions 6; home ppp 118 / 93 ≈ 1.269 → high = 100 + 6 × 1.5 = 109
+    const range = predictRange({ period: 5, remaining: 200, home: 100, away: 50 });
+    expect(range.home).toEqual({ low: 100, high: 109 });
+    expect(range.away).toEqual({ low: 50, high: 59 });
   });
 
-  it("does not clamp a band that stays above the current score", () => {
-    const { low } = finalRange(10, 100);
-    expect(low).toBeCloseTo(100 - 1.96 * Math.sqrt(180), 10);
-    expect(low).toBeGreaterThan(10);
+  it("case f: a snapshot at 0:00 elapsed", () => {
+    // possessions 72 → high = 0 + 72 × 1.5 = 108
+    const range = predictRange({ period: 1, remaining: 600, home: 0, away: 0 });
+    expect(range.home).toEqual({ low: 0, high: 108 });
+    expect(range.away).toEqual({ low: 0, high: 108 });
+  });
+
+  it("keeps the prediction inside the range", () => {
+    for (const snapshot of [
+      { period: 1, remaining: 300, home: 0, away: 25 },
+      { period: 2, remaining: 100, home: 40, away: 70 },
+      { period: 6, remaining: 10, home: 120, away: 119 },
+    ]) {
+      const prediction = predict(snapshot);
+      const range = predictRange(snapshot);
+      expect(prediction.home).toBeGreaterThanOrEqual(range.home.low);
+      expect(prediction.home).toBeLessThanOrEqual(range.home.high + 1e-9);
+      expect(prediction.away).toBeGreaterThanOrEqual(range.away.low);
+      expect(prediction.away).toBeLessThanOrEqual(range.away.high + 1e-9);
+    }
   });
 });

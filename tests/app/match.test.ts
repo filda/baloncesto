@@ -79,12 +79,17 @@ describe("game helpers", () => {
 
   it("predicts from the last snapshot", () => {
     const g = addSnapshot(addSnapshot(empty(), a), b);
-    expect(currentPrediction(g)).toEqual({ elapsed: 900, end: 2400, home: 80, away: 64 });
+    // b at 900 s: possessions 45, denominator 45 -> home 30 + 48 = 78, away 24 + 42 = 66
+    const prediction = currentPrediction(g);
+    expect(prediction?.elapsed).toBe(900);
+    expect(prediction?.end).toBe(2400);
+    expect(prediction?.home).toBeCloseTo(78, 10);
+    expect(prediction?.away).toBeCloseTo(66, 10);
   });
 
-  it("has no prediction when nothing has been played", () => {
+  it("predicts the prior when nothing has been played yet", () => {
     const g = addSnapshot(empty(), { period: 1, remaining: 600, home: 0, away: 0 });
-    expect(currentPrediction(g)).toBeNull();
+    expect(currentPrediction(g)).toEqual({ elapsed: 0, end: 2400, home: 72, away: 72 });
   });
 
   it("gives defaults for an empty game", () => {

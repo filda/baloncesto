@@ -1,6 +1,6 @@
 # Baloncesto
 
-A simple extrapolation predictor for basketball game results. From repeatedly entered scoreboard snapshots (period, remaining time, score) it estimates the final score and draws a chart. Games are stored in localStorage. See [docs/project-plan.md](docs/project-plan.md) for details.
+A possession-based predictor for basketball game results. From repeatedly entered scoreboard snapshots (period, remaining time, score) it estimates the final score and draws a chart. Games are stored in localStorage. See [docs/project-plan.md](docs/project-plan.md) for details.
 
 The app is installable (PWA) and works offline.
 
@@ -45,7 +45,12 @@ A second key, `baloncesto:geocache`, holds the reverse-geocoding cache: a JSON o
 
 ### Prediction range
 
-The projected final is linear (`points + points / elapsed × remaining`). Its range is a ≈ 95 % interval: with expected remaining points `E = points / elapsed × remaining`, scoring events worth ~2 points give `prediction ± 1.96 × √(2 × E)`, and the lower bound is never below the current score. The range shrinks to zero at the final buzzer, is drawn as a light band around the dashed line and is printed as min–max under the projected final.
+The projection is possession based, per team and independent of the other team (`src/domain/predict.ts`). Constants: `POSSESSIONS_PER_40 = 72`, `POSSESSION_RATE = 72 / 2400` per second, `PRIOR_PPP = 1.0` points per possession, `PRIOR_WEIGHT_SECONDS = 600`, `HOT_PPP = 1.5`.
+
+- `ppp = (points + PRIOR_PPP × POSSESSION_RATE × PRIOR_WEIGHT_SECONDS) / (POSSESSION_RATE × (elapsed + PRIOR_WEIGHT_SECONDS))`: the observed rate shrunk towards the prior, which weighs as much as one played period.
+- `remainingPossessions = POSSESSION_RATE × (end − elapsed)`, where `end` is the end of the current period's game (2400 s, plus 300 s per overtime).
+- `predicted = points + remainingPossessions × ppp`. An entry at 0:00 elapsed predicts the prior (72 for 0 points); "— : —" is shown only while there are no entries.
+- Range (min–max): `low = points` (no further scoring), `high = points + remainingPossessions × max(HOT_PPP, ppp)` (a hot streak). The range collapses to the current score at the final buzzer, is drawn as a light band from the current score up to the high bound around the dashed line, and is printed as min–max under the projected final.
 
 ### Migration policy
 

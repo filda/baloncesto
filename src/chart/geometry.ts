@@ -5,11 +5,8 @@ import {
   elapsedSeconds,
   gameEndSeconds,
 } from "../domain/clock";
-import { halfWidth, predict, predictRange, roundScore } from "../domain/predict";
+import { predict, predictRange, roundScore } from "../domain/predict";
 import type { Snapshot } from "../domain/predict";
-
-/** Number of segments the band's edges are sampled in between the last entry and the end. */
-export const BAND_STEPS = 12;
 
 export const PADDING = { top: 22, right: 38, bottom: 10, left: 30 } as const;
 
@@ -45,7 +42,7 @@ export interface TeamSeries {
   finalLabel: number | null;
   /** Rounded min–max of the final score. */
   range: { low: number; high: number } | null;
-  /** Closed polygon of the range band: upper edge forwards, lower edge back. */
+  /** Closed polygon of the range band: from the last entry up to the high bound, down to the low bound and back. */
   band: Point[] | null;
 }
 
@@ -118,18 +115,16 @@ export function computeChart(snapshots: Snapshot[], width: number, height: numbe
     if (!prediction || !range || !last || !from) {
       return { known, prediction: null, finalLabel: null, range: null, band: null };
     }
-    const points = last[team];
-    const pace = points / prediction.elapsed;
-    const upper: Point[] = [];
-    const lower: Point[] = [];
-    for (let i = 0; i <= BAND_STEPS; i++) {
-      const ahead = ((end - prediction.elapsed) * i) / BAND_STEPS;
-      const centre = points + pace * ahead;
-      const half = halfWidth(pace * ahead);
-      const px = x(prediction.elapsed + ahead);
-      upper.push({ x: px, y: y(centre + half) });
-      lower.push({ x: px, y: y(Math.max(points, centre - half)) });
-    }
+    const startX = x(prediction.elapsed);
+    const endX = x(end);
+    const low = y(range[team].low);
+    // Flat lower edge at the current score, upper edge linear to the high bound.
+    const band: Point[] = [
+      { x: startX, y: low },
+      { x: endX, y: y(range[team].high) },
+      { x: endX, y: low },
+      { x: startX, y: low },
+    ];
     return {
       known,
       prediction: {
@@ -138,7 +133,7 @@ export function computeChart(snapshots: Snapshot[], width: number, height: numbe
       },
       finalLabel: roundScore(prediction[team]),
       range: { low: roundScore(range[team].low), high: roundScore(range[team].high) },
-      band: [...upper, ...lower.reverse()],
+      band,
     };
   }
 

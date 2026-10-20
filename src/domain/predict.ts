@@ -1,5 +1,16 @@
 import { elapsedSeconds, gameEndSeconds } from "./clock";
 
+/** Possessions per team in 40 minutes (FIBA average). */
+export const POSSESSIONS_PER_40 = 72;
+/** Possessions per team per second of game time. */
+export const POSSESSION_RATE = POSSESSIONS_PER_40 / 2400;
+/** League prior for points per possession. */
+export const PRIOR_PPP = 1.0;
+/** Game seconds the prior weighs, i.e. one regulation period of evidence. */
+export const PRIOR_WEIGHT_SECONDS = 600;
+/** Points per possession of a realistic hot streak; the range's upper bound uses at least this. */
+export const HOT_PPP = 1.5;
+
 export interface Snapshot {
   period: number;
   /** Seconds remaining in the period. */
@@ -16,16 +27,23 @@ export interface Prediction {
   away: number;
 }
 
-export function predict(snapshot: Snapshot): Prediction | null {
+/** Points per possession: the observed rate shrunk towards the prior by PRIOR_WEIGHT_SECONDS. */
+function pointsPerPossession(points: number, elapsed: number): number {
+  return (
+    (points + PRIOR_PPP * POSSESSION_RATE * PRIOR_WEIGHT_SECONDS) /
+    (POSSESSION_RATE * (elapsed + PRIOR_WEIGHT_SECONDS))
+  );
+}
+
+export function predict(snapshot: Snapshot): Prediction {
   const elapsed = elapsedSeconds(snapshot.period, snapshot.remaining);
-  if (elapsed === 0) return null;
   const end = gameEndSeconds(snapshot.period);
-  const left = end - elapsed;
+  const possessions = POSSESSION_RATE * (end - elapsed);
   return {
     elapsed,
     end,
-    home: snapshot.home + (snapshot.home / elapsed) * left,
-    away: snapshot.away + (snapshot.away / elapsed) * left,
+    home: snapshot.home + possessions * pointsPerPossession(snapshot.home, elapsed),
+    away: snapshot.away + possessions * pointsPerPossession(snapshot.away, elapsed),
   };
 }
 
@@ -33,13 +51,8 @@ export function roundScore(points: number): number {
   return Math.round(points);
 }
 
-/** z-score of a two-sided ~95 % interval. */
-export const Z = 1.96;
-/** Remaining points arrive as scoring events worth ~2 points, so their variance is 2 × expected. */
-export const POINTS_PER_EVENT = 2;
-
 export interface Range {
-  /** Unrounded lower bound of the final score (never below the current score). */
+  /** Unrounded lower bound of the final score: the current score. */
   low: number;
   /** Unrounded upper bound of the final score. */
   high: number;
@@ -50,22 +63,17 @@ export interface PredictionRange {
   away: Range;
 }
 
-/** Half-width of the interval for `expected` remaining points: Z × √(POINTS_PER_EVENT × expected). */
-export function halfWidth(expected: number): number {
-  return Z * Math.sqrt(POINTS_PER_EVENT * expected);
+/** Range of the final score: no further points up to a hot streak of at least HOT_PPP. */
+function finalRange(points: number, elapsed: number, possessions: number): Range {
+  const ppp = Math.max(HOT_PPP, pointsPerPossession(points, elapsed));
+  return { low: points, high: points + possessions * ppp };
 }
 
-/** Interval of the final score for a team with `points` now and a linear `predicted` final. */
-export function finalRange(points: number, predicted: number): Range {
-  const half = halfWidth(predicted - points);
-  return { low: Math.max(points, predicted - half), high: predicted + half };
-}
-
-export function predictRange(snapshot: Snapshot): PredictionRange | null {
-  const prediction = predict(snapshot);
-  if (!prediction) return null;
+export function predictRange(snapshot: Snapshot): PredictionRange {
+  const elapsed = elapsedSeconds(snapshot.period, snapshot.remaining);
+  const possessions = POSSESSION_RATE * (gameEndSeconds(snapshot.period) - elapsed);
   return {
-    home: finalRange(snapshot.home, prediction.home),
-    away: finalRange(snapshot.away, prediction.away),
+    home: finalRange(snapshot.home, elapsed, possessions),
+    away: finalRange(snapshot.away, elapsed, possessions),
   };
 }

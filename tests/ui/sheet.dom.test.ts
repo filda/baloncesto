@@ -258,11 +258,17 @@ describe("projected range", () => {
 
   it("shows both ranges under the projected final, below the numbers", () => {
     sheet.render(gameWith([{ period: 3, remaining: 432, home: 48, away: 45 }]), []);
-    expect($(root, ".estimate-score").textContent).toBe("84 : 79");
+    expect($(root, ".estimate-score").textContent).toBe("83 : 78");
     expect(range().hidden).toBe(false);
-    expect(range().textContent).toBe("68–101 · 63–95");
-    expect($(range(), ".home").textContent).toBe("68–101");
-    expect($(range(), ".away").textContent).toBe("63–95");
+    expect(range().textContent).toBe("48–94 · 45–91");
+    expect($(range(), ".home").textContent).toBe("48–94");
+    expect($(range(), ".away").textContent).toBe("45–91");
+  });
+
+  it("shows the prior once the first entry is a 0:00 snapshot", () => {
+    sheet.render(gameWith([{ period: 1, remaining: 600, home: 0, away: 0 }]), []);
+    expect($(root, ".estimate-score").textContent).toBe("72 : 72");
+    expect(range().textContent).toBe("0–108 · 0–108");
   });
 
   it("hides again when the last entry is removed", () => {
