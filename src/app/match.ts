@@ -150,6 +150,24 @@ export function removeSnapshotAt<T extends HasSnapshots>(game: T, index: number)
   return { ...game, snapshots: game.snapshots.filter((_, i) => i !== index) };
 }
 
+/** Entries that consolidation drops: those whose score equals the next entry's score. */
+export function repeatedScoreCount(game: HasSnapshots): number {
+  return game.snapshots.length - consolidateSnapshots(game).snapshots.length;
+}
+
+/**
+ * Keeps only the last entry of each run of consecutive entries with the same score. The last
+ * entry always survives, so the prediction does not change. Returns the game unchanged when
+ * there is nothing to drop.
+ */
+export function consolidateSnapshots<T extends HasSnapshots>(game: T): T {
+  const kept = game.snapshots.filter((snapshot, index, all) => {
+    const next = all[index + 1];
+    return !next || next.home !== snapshot.home || next.away !== snapshot.away;
+  });
+  return kept.length === game.snapshots.length ? game : { ...game, snapshots: kept };
+}
+
 export function lastSnapshot(game: HasSnapshots): Snapshot | null {
   return game.snapshots.at(-1) ?? null;
 }

@@ -137,6 +137,10 @@ if (app) {
       store.removeSnapshot(index);
       showGame();
     },
+    onConsolidate() {
+      store.consolidate();
+      showGame();
+    },
     onNew() {
       location.hash = ROUTE_HASH.new;
     },

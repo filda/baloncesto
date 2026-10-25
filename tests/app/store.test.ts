@@ -126,6 +126,30 @@ describe("snapshots", () => {
     expect(loadState(storage).games[0]?.snapshots).toEqual([snap(4, 5, 400)]);
   });
 
+  it("consolidates repeated scores and persists the result", () => {
+    const { store, storage } = makeStore();
+    store.addSnapshot(snap(2, 3, 500));
+    store.addSnapshot(snap(2, 3, 400));
+    store.addSnapshot(snap(4, 3, 300));
+    store.consolidate();
+    expect(store.game.snapshots).toEqual([snap(2, 3, 400), snap(4, 3, 300)]);
+    expect(loadState(storage).games[0]?.snapshots).toEqual([snap(2, 3, 400), snap(4, 3, 300)]);
+  });
+
+  it("does not write when there is nothing to consolidate", () => {
+    const onSave = vi.fn();
+    const store = createStore({
+      storage: new FakeStorage(),
+      now: () => NOW,
+      newId: () => "id",
+      onSave,
+    });
+    store.addSnapshot(snap(2, 3));
+    onSave.mockClear();
+    store.consolidate();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it("ignores an out-of-range removal", () => {
     const { store } = makeStore();
     store.addSnapshot(snap(2, 3));

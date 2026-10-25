@@ -296,6 +296,31 @@ button:disabled {
   font-size: 0.7rem;
 }
 
+.log-consolidate {
+  margin-top: 8px;
+  border: 1px solid var(--rule);
+}
+
+.log-consolidate > .actions {
+  border-top: 0;
+}
+
+.log-consolidate button {
+  min-height: 44px;
+}
+
+/* Inline confirmation, printed like the history delete confirmation. */
+.log-confirm {
+  border-top: 1px solid var(--away);
+}
+
+.log-confirm-text {
+  margin: 0;
+  padding: 8px 8px 0;
+  letter-spacing: 0.14em;
+  color: var(--away);
+}
+
 footer {
   margin-top: 16px;
   padding: 8px 0 16px;

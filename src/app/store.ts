@@ -4,6 +4,7 @@ import {
   DEFAULT_AWAY_NAME,
   DEFAULT_HOME_NAME,
   addSnapshot,
+  consolidateSnapshots,
   createGame,
   newGame,
   normalizeTeamName,
@@ -48,6 +49,8 @@ export interface Store {
   remove(id: string): boolean;
   addSnapshot(snapshot: Snapshot): void;
   removeSnapshot(index: number): void;
+  /** Drops repeated-score entries (see consolidateSnapshots); writes only when something changed. */
+  consolidate(): void;
   setTeamName(side: Side, value: string): void;
   setLocation(coords: Coords, place: string | undefined): void;
   /**
@@ -117,6 +120,10 @@ export function createStore(deps: StoreDeps): Store {
     },
     removeSnapshot(index) {
       update(removeSnapshotAt(game, index));
+    },
+    consolidate() {
+      const next = consolidateSnapshots(game);
+      if (next !== game) update(next);
     },
     setTeamName(side, value) {
       update(

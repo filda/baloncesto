@@ -40,6 +40,7 @@ export function spies() {
   return {
     onSubmit: vi.fn(),
     onRemoveEntry: vi.fn(),
+    onConsolidate: vi.fn(),
     onNew: vi.fn(),
     onAddPlace: vi.fn(),
     onTeamName: vi.fn(),

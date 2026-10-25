@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addSnapshot,
+  consolidateSnapshots,
   createGame,
   draftNewGame,
   INVALID_DATE_MESSAGE,
@@ -11,6 +12,7 @@ import {
   newGame,
   nextInputDefaults,
   removeSnapshotAt,
+  repeatedScoreCount,
   shouldOpenNewFormOnStart,
   coordsText,
   withLocation,
@@ -104,6 +106,51 @@ describe("game helpers", () => {
   it("prefills from the last snapshot", () => {
     const g = addSnapshot(addSnapshot(empty(), a), { ...b, remaining: 65 });
     expect(nextInputDefaults(g)).toEqual({ period: "2", clock: "1:05", home: "30", away: "24" });
+  });
+});
+
+describe("consolidateSnapshots", () => {
+  const at = (remaining: number, home: number, away: number) => ({
+    period: 1,
+    remaining,
+    home,
+    away,
+  });
+
+  it("keeps the last entry of each run of equal scores", () => {
+    const game = {
+      ...empty(),
+      snapshots: [at(480, 10, 8), at(430, 10, 8), at(390, 10, 8), at(300, 12, 8), at(200, 12, 8)],
+    };
+    const result = consolidateSnapshots(game);
+    expect(result.snapshots).toEqual([at(390, 10, 8), at(200, 12, 8)]);
+    expect(result.id).toBe("g1");
+    expect(game.snapshots).toHaveLength(5);
+    expect(repeatedScoreCount(game)).toBe(3);
+  });
+
+  it("treats a change of either score as a different entry", () => {
+    const snapshots = [at(500, 10, 8), at(400, 12, 8), at(300, 12, 10), at(200, 14, 10)];
+    const game = { ...empty(), snapshots };
+    expect(consolidateSnapshots(game)).toBe(game);
+    expect(repeatedScoreCount(game)).toBe(0);
+  });
+
+  it("only merges neighbours", () => {
+    const game = { snapshots: [at(500, 10, 8), at(400, 12, 8), at(300, 12, 8), at(200, 14, 8)] };
+    expect(consolidateSnapshots(game).snapshots).toEqual([
+      at(500, 10, 8),
+      at(300, 12, 8),
+      at(200, 14, 8),
+    ]);
+  });
+
+  it("returns an empty or single-entry game unchanged", () => {
+    const none = empty();
+    const one = { ...empty(), snapshots: [a] };
+    expect(consolidateSnapshots(none)).toBe(none);
+    expect(consolidateSnapshots(one)).toBe(one);
+    expect(repeatedScoreCount(none)).toBe(0);
   });
 });
 

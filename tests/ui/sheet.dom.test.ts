@@ -217,6 +217,60 @@ describe("log delete", () => {
   });
 });
 
+describe("log consolidate", () => {
+  const repeated = [
+    { period: 1, remaining: 400, home: 10, away: 8 },
+    { period: 1, remaining: 350, home: 10, away: 8 },
+    { period: 1, remaining: 300, home: 10, away: 8 },
+    { period: 2, remaining: 500, home: 20, away: 18 },
+  ];
+  const box = () => $(root, ".log-consolidate");
+  const confirm = () => $(root, ".log-confirm");
+
+  it("is hidden when no score repeats", () => {
+    sheet.render(gameWith(entries), []);
+    expect(box().hidden).toBe(true);
+  });
+
+  it("sits below the log table and shows the number of entries to remove", () => {
+    sheet.render(gameWith(repeated), []);
+    expect(box().hidden).toBe(false);
+    expect($(root, ".log table").nextElementSibling).toBe(box());
+    expect($(root, "#btn-consolidate").textContent).toBe("Remove repeated scores (2)");
+    expect(confirm().hidden).toBe(true);
+  });
+
+  it("asks before removing and calls the handler on confirm", () => {
+    sheet.render(gameWith(repeated), []);
+    click($(root, "#btn-consolidate"));
+    expect(confirm().hidden).toBe(false);
+    expect($(root, ".log-confirm-text").textContent).toBe(
+      "REMOVE 2 ENTRIES WITH A REPEATED SCORE?",
+    );
+    expect(document.activeElement).toBe($(root, ".log-consolidate-keep"));
+    expect(handlers.onConsolidate).not.toHaveBeenCalled();
+    click($(root, ".log-consolidate-remove"));
+    expect(handlers.onConsolidate).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the entries when the user backs out", () => {
+    sheet.render(gameWith(repeated), []);
+    click($(root, "#btn-consolidate"));
+    click($(root, ".log-consolidate-keep"));
+    expect(confirm().hidden).toBe(true);
+    expect(document.activeElement).toBe($(root, "#btn-consolidate"));
+    expect(handlers.onConsolidate).not.toHaveBeenCalled();
+  });
+
+  it("uses the singular for one entry and closes the confirm on re-render", () => {
+    sheet.render(gameWith(repeated.slice(1)), []);
+    click($(root, "#btn-consolidate"));
+    expect($(root, ".log-confirm-text").textContent).toBe("REMOVE 1 ENTRY WITH A REPEATED SCORE?");
+    sheet.render(gameWith(repeated.slice(1)), []);
+    expect(confirm().hidden).toBe(true);
+  });
+});
+
 describe("team names", () => {
   it("reports changes per side", () => {
     const home = $<HTMLInputElement>(root, "#f-home-name");

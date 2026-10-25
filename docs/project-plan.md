@@ -67,6 +67,7 @@ Visual direction: **paper scoresheet**. Off-white paper, a grid like an official
 - Known data in a saturated colour, prediction lighter (dashed).
 - Projected final score below the chart.
 - Log of snapshots, newest first; each row has a × button to delete it (no separate undo button).
+- Below the log, shown only when some entry has the same score as the next one: "REMOVE REPEATED SCORES (n)" keeps only the last entry of each run of equal scores (the prediction does not change), after an inline confirm.
 - Optimised for a portrait phone screen (see Target device).
 - The footer shows the app version: commit hash and deployment date.
 - Teams can be named.

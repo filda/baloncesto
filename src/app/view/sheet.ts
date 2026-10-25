@@ -11,6 +11,7 @@ import {
   currentPrediction,
   gameInfoLine,
   lastSnapshot,
+  repeatedScoreCount,
 } from "../match";
 import type { Game, Side } from "../match";
 import { button, el, selectOnFocus } from "./dom";
@@ -19,6 +20,8 @@ export interface SheetHandlers {
   onSubmit(input: SnapshotInput): void;
   /** Deletes the log entry at `index` (0-based, chronological order). */
   onRemoveEntry(index: number): void;
+  /** Drops the entries whose score repeats in the next entry. */
+  onConsolidate(): void;
   onAddPlace(): void;
   onTeamName(side: Side, value: string): void;
 }
@@ -157,7 +160,40 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
   head.append(headRow);
   const body = el("tbody");
   table.append(caption, head, body);
-  log.append(table);
+
+  // Consolidation sits below the log, out of the way during a game, with an inline confirm.
+  const consolidate = el("div", "log-consolidate");
+  const consolidateActions = el("div", "actions");
+  const consolidateConfirm = el("div", "log-confirm");
+  consolidateConfirm.setAttribute("role", "group");
+  consolidateConfirm.setAttribute("aria-label", "Confirm remove repeated scores");
+  const askConsolidate = (asking: boolean): void => {
+    consolidateActions.hidden = asking;
+    consolidateConfirm.hidden = !asking;
+  };
+  const consolidateButton = button(
+    "log-consolidate-button secondary",
+    "",
+    () => {
+      askConsolidate(true);
+      consolidateKeep.focus();
+    },
+    "btn-consolidate",
+  );
+  const consolidateKeep = button("log-consolidate-keep primary", "KEEP", () => {
+    askConsolidate(false);
+    consolidateButton.focus();
+  });
+  const consolidateConfirmText = el("p", "printed log-confirm-text");
+  const consolidateConfirmButtons = el("div", "actions");
+  consolidateConfirmButtons.append(
+    button("log-consolidate-remove secondary", "REMOVE", () => handlers.onConsolidate()),
+    consolidateKeep,
+  );
+  consolidateActions.append(consolidateButton);
+  consolidateConfirm.append(consolidateConfirmText, consolidateConfirmButtons);
+  consolidate.append(consolidateActions, consolidateConfirm);
+  log.append(table, consolidate);
 
   const nodes = [info, form, chart, estimate, log];
 
@@ -250,6 +286,13 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
     });
     body.replaceChildren(...rows.reverse());
     log.hidden = rows.length === 0;
+
+    const repeated = repeatedScoreCount(game);
+    consolidate.hidden = repeated === 0;
+    askConsolidate(false);
+    const entries = `${repeated} ${repeated === 1 ? "entry" : "entries"}`;
+    consolidateButton.textContent = `Remove repeated scores (${repeated})`;
+    consolidateConfirmText.textContent = `REMOVE ${entries.toUpperCase()} WITH A REPEATED SCORE?`;
   }
 
   return {
