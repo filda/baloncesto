@@ -342,3 +342,35 @@ describe("projected range", () => {
     expect(range().hidden).toBe(true);
   });
 });
+
+describe("win probability", () => {
+  const win = () => $(root, ".estimate-win");
+
+  it("is hidden until there is a prediction", () => {
+    sheet.render(gameWith([]), []);
+    expect(win().hidden).toBe(true);
+  });
+
+  it("shows both teams' chances under the range", () => {
+    sheet.render(gameWith([{ period: 3, remaining: 432, home: 48, away: 45 }]), []);
+    expect(win().hidden).toBe(false);
+    expect($(root, ".estimate-range").nextElementSibling).toBe(win());
+    expect(win().textContent).toBe("Win 70% · 30%");
+    expect($(win(), ".home").textContent).toBe("70%");
+    expect($(win(), ".away").textContent).toBe("30%");
+  });
+
+  it("caps an undecided game at 99% and shows 100% at the final buzzer", () => {
+    sheet.render(gameWith([{ period: 4, remaining: 60, home: 90, away: 60 }]), []);
+    expect(win().textContent).toBe("Win 99% · 1%");
+    sheet.render(gameWith([{ period: 4, remaining: 0, home: 60, away: 90 }]), []);
+    expect(win().textContent).toBe("Win 0% · 100%");
+  });
+
+  it("hides again when the last entry is removed", () => {
+    sheet.render(gameWith(entries), []);
+    expect(win().hidden).toBe(false);
+    sheet.render(gameWith([]), []);
+    expect(win().hidden).toBe(true);
+  });
+});

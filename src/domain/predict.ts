@@ -77,3 +77,49 @@ export function predictRange(snapshot: Snapshot): PredictionRange {
     away: finalRange(snapshot.away, elapsed, possessions),
   };
 }
+
+/** Variance of one possession's points (0–3 points, about 1 on average). */
+export const POSSESSION_VARIANCE = 1.2;
+
+export interface WinProbability {
+  /** Probability that the home team wins, 0–1. */
+  home: number;
+  away: number;
+  /** True when no time is left, so the probabilities are 0, 1 or a 0.5 tie. */
+  decided: boolean;
+}
+
+/** Standard normal CDF (Abramowitz–Stegun 7.1.26 for erf, absolute error below 1.5e-7). */
+export function normalCdf(z: number): number {
+  const x = Math.abs(z) / Math.SQRT2;
+  const t = 1 / (1 + 0.3275911 * x);
+  const poly =
+    ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t;
+  const erf = 1 - poly * Math.exp(-x * x);
+  return z >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
+}
+
+/**
+ * Win probability from the possession model: each team's remaining points are a sum of
+ * independent possessions, so the final margin is roughly normal around the predicted margin
+ * with variance 2 × remaining possessions × POSSESSION_VARIANCE. A tie (overtime) counts half.
+ */
+export function winProbability(snapshot: Snapshot): WinProbability {
+  const prediction = predict(snapshot);
+  const possessions = POSSESSION_RATE * (prediction.end - prediction.elapsed);
+  const margin = prediction.home - prediction.away;
+  const sd = Math.sqrt(2 * possessions * POSSESSION_VARIANCE);
+  if (sd === 0) {
+    const home = margin > 0 ? 1 : margin < 0 ? 0 : 0.5;
+    return { home, away: 1 - home, decided: true };
+  }
+  const home = normalCdf(margin / sd);
+  return { home, away: 1 - home, decided: false };
+}
+
+/** Whole percents that add up to 100; 0 and 100 only once the game is decided. */
+export function winPercents(win: WinProbability): { home: number; away: number } {
+  const rounded = Math.round(win.home * 100);
+  const home = win.decided ? rounded : Math.min(99, Math.max(1, rounded));
+  return { home, away: 100 - home };
+}

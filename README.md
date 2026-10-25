@@ -52,6 +52,10 @@ The projection is possession based, per team and independent of the other team (
 - `predicted = points + remainingPossessions × ppp`. An entry at 0:00 elapsed predicts the prior (72 for 0 points); "— : —" is shown only while there are no entries.
 - Range (min–max): `low = points` (no further scoring), `high = points + remainingPossessions × max(HOT_PPP, ppp)` (a hot streak). The range collapses to the current score at the final buzzer, is drawn as a light band from the current score up to the high bound around the dashed line, and is printed as min–max under the projected final.
 
+### Win probability
+
+`winProbability` in `src/domain/predict.ts` treats each team's remaining points as a sum of independent possessions with `POSSESSION_VARIANCE = 1.2` points² each. The final margin is then roughly normal with mean `predicted home − predicted away` and `sd = √(2 × remainingPossessions × POSSESSION_VARIANCE)` (about 13 points at tip-off), and the home team's chance is `Φ(margin / sd)`. With no time left the result is 1, 0 or 0.5 for a tie (overtime). The sheet prints whole percents adding up to 100 under the range, kept within 1–99 % until the game is decided.
+
 ### Migration policy
 
 The stored `version` is the schema version. `migrate()` in `src/app/storage.ts` currently accepts only version `1` and returns it unchanged; any other or missing version (including newer ones) yields `null`, which loads as the empty state and does not overwrite anything until the next save. To change the schema, bump the version (and the storage key), add a step v(n) → v(n+1) in `migrate()` and chain the steps. Old keys are never mutated in place.

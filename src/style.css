@@ -112,11 +112,23 @@ footer {
   text-align: center;
 }
 
-.estimate-range .home {
+/* Win probability: a second printed line under the range, pulled up against it. */
+.estimate-win {
+  grid-column: 2;
+  margin-top: -12px;
+  padding-bottom: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.estimate-range .home,
+.estimate-win .home {
   color: var(--home);
 }
 
-.estimate-range .away {
+.estimate-range .away,
+.estimate-win .away {
   color: var(--away);
 }
 

@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   HOT_PPP,
+  POSSESSION_VARIANCE,
   POSSESSIONS_PER_40,
   POSSESSION_RATE,
   PRIOR_PPP,
   PRIOR_WEIGHT_SECONDS,
   predict,
   predictRange,
+  normalCdf,
   roundScore,
+  winPercents,
+  winProbability,
 } from "../../src/domain/predict";
 
 describe("constants", () => {
@@ -174,5 +178,97 @@ describe("predictRange", () => {
       expect(prediction.away).toBeGreaterThanOrEqual(range.away.low);
       expect(prediction.away).toBeLessThanOrEqual(range.away.high + 1e-9);
     }
+  });
+});
+
+describe("normalCdf", () => {
+  it("matches known values of the standard normal CDF", () => {
+    expect(normalCdf(0)).toBeCloseTo(0.5, 7);
+    expect(normalCdf(1)).toBeCloseTo(0.841345, 6);
+    expect(normalCdf(-1)).toBeCloseTo(0.158655, 6);
+    expect(normalCdf(1.96)).toBeCloseTo(0.975002, 6);
+    expect(normalCdf(-3)).toBeCloseTo(0.00135, 5);
+    expect(normalCdf(10)).toBeCloseTo(1, 12);
+  });
+});
+
+describe("winProbability", () => {
+  it("pins the possession variance", () => {
+    expect(POSSESSION_VARIANCE).toBe(1.2);
+  });
+
+  it("is a coin flip at a tied tip-off, with a margin sd of about 13 points", () => {
+    const win = winProbability({ period: 1, remaining: 600, home: 0, away: 0 });
+    expect(win.home).toBeCloseTo(0.5, 7);
+    expect(win.away).toBeCloseTo(0.5, 7);
+    expect(win.decided).toBe(false);
+    // sd = sqrt(2 × 72 × 1.2) ≈ 13.15: a 13-point predicted margin is about one sd.
+    expect(Math.sqrt(2 * 72 * POSSESSION_VARIANCE)).toBeCloseTo(13.145, 3);
+  });
+
+  it("case b: worked example (period 3, 7:12, 48 : 45)", () => {
+    // predicted 82.6098 : 78.0366 → margin 4.5732; possessions 30.96 → sd sqrt(74.304) ≈ 8.6200
+    // z ≈ 0.5305 → Φ ≈ 0.7021
+    const win = winProbability({ period: 3, remaining: 432, home: 48, away: 45 });
+    expect(win.home).toBeCloseTo(0.7021, 4);
+    expect(win.home + win.away).toBeCloseTo(1, 12);
+    expect(win.decided).toBe(false);
+  });
+
+  it("is near certain for a 15-point lead three minutes before the end", () => {
+    const win = winProbability({ period: 4, remaining: 180, home: 80, away: 65 });
+    expect(win.home).toBeGreaterThan(0.999);
+    expect(win.away).toBeLessThan(0.001);
+  });
+
+  it("favours the trailing team symmetrically", () => {
+    const home = winProbability({ period: 2, remaining: 300, home: 30, away: 40 });
+    const away = winProbability({ period: 2, remaining: 300, home: 40, away: 30 });
+    expect(home.home).toBeCloseTo(away.away, 12);
+    expect(home.home).toBeLessThan(0.5);
+  });
+
+  it("is decided at the final buzzer, a tie counting half", () => {
+    expect(winProbability({ period: 4, remaining: 0, home: 82, away: 76 })).toEqual({
+      home: 1,
+      away: 0,
+      decided: true,
+    });
+    expect(winProbability({ period: 5, remaining: 0, home: 90, away: 91 })).toEqual({
+      home: 0,
+      away: 1,
+      decided: true,
+    });
+    expect(winProbability({ period: 4, remaining: 0, home: 80, away: 80 })).toEqual({
+      home: 0.5,
+      away: 0.5,
+      decided: true,
+    });
+  });
+});
+
+describe("winPercents", () => {
+  it("rounds to whole percents that add up to 100", () => {
+    expect(winPercents({ home: 0.741, away: 0.259, decided: false })).toEqual({
+      home: 74,
+      away: 26,
+    });
+    expect(winPercents({ home: 0.505, away: 0.495, decided: false })).toEqual({
+      home: 51,
+      away: 49,
+    });
+  });
+
+  it("keeps 0 and 100 for decided games only", () => {
+    expect(winPercents({ home: 0.9999, away: 0.0001, decided: false })).toEqual({
+      home: 99,
+      away: 1,
+    });
+    expect(winPercents({ home: 0.0001, away: 0.9999, decided: false })).toEqual({
+      home: 1,
+      away: 99,
+    });
+    expect(winPercents({ home: 1, away: 0, decided: true })).toEqual({ home: 100, away: 0 });
+    expect(winPercents({ home: 0.5, away: 0.5, decided: true })).toEqual({ home: 50, away: 50 });
   });
 });

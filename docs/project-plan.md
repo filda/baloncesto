@@ -32,6 +32,7 @@ Games are stored in localStorage.
   - Prediction = current points + remaining possessions × ppp.
 - When elapsed time is 0, the prediction equals the prior (≈ 72 per team); it is shown once there is at least one snapshot.
 - Prediction range (min–max): low = current points (the team may not score again), high = current points + remaining possessions × max(1.5, ppp) (a realistic hot streak). The range narrows to the current score at the final buzzer and is drawn as a light band from the current score up to the high bound, around the dashed prediction line, with the min–max finals labelled at the end.
+- Win probability: each team's remaining points are a sum of independent possessions with variance `1.2` points² each, so the final margin is roughly normal around the predicted margin with variance `2 × remaining possessions × 1.2` (sd ≈ 13 points at tip-off). Home win probability = `Φ(predicted margin / sd)`; a tie counts half. Shown as whole percents under the range ("WIN 70% · 30%"), capped at 1–99 % until the final buzzer.
 - Output: curves + predicted final score (e.g. "82 : 76") at the end of the chart.
 - The calculation is a pure function in its own module, fully covered by unit tests.
 

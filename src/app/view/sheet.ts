@@ -1,6 +1,6 @@
 import { formatClock } from "../../domain/clock";
 import { completeClockInput, formatClockInput } from "../../domain/clock-input";
-import { predictRange, roundScore } from "../../domain/predict";
+import { predictRange, roundScore, winPercents, winProbability } from "../../domain/predict";
 import { rangeText, renderChart } from "../../chart/render";
 import type { Field, FieldError, SnapshotInput } from "../../domain/validate";
 import { formatDateTime } from "../format";
@@ -87,7 +87,12 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
   const rangeLine = el("span", "printed estimate-range");
   rangeLine.append(rangeHome, " · ", rangeAway);
   rangeLine.hidden = true;
-  estimate.append(teamInputs.home, estimateScore, teamInputs.away, rangeLine);
+  const winHome = el("span", "home");
+  const winAway = el("span", "away");
+  const winLine = el("span", "printed estimate-win");
+  winLine.append("Win ", winHome, " · ", winAway);
+  winLine.hidden = true;
+  estimate.append(teamInputs.home, estimateScore, teamInputs.away, rangeLine, winLine);
 
   const chart = el("section", "chart");
   chart.id = "chart";
@@ -249,6 +254,12 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
     const last = prediction ? lastSnapshot(game) : null;
     const range = last ? predictRange(last) : null;
     rangeLine.hidden = !range;
+    winLine.hidden = !last;
+    if (last) {
+      const win = winPercents(winProbability(last));
+      winHome.textContent = `${win.home}%`;
+      winAway.textContent = `${win.away}%`;
+    }
     if (range) {
       rangeHome.textContent = rangeText({
         low: roundScore(range.home.low),
