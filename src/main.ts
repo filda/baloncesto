@@ -131,7 +131,7 @@ if (app) {
       }
       store.addSnapshot(result.snapshot);
       showGame();
-      view.focusHome();
+      view.focusEntry();
     },
     onRemoveEntry(index) {
       store.removeSnapshot(index);

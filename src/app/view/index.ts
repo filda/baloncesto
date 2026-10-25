@@ -35,7 +35,8 @@ export interface View {
   suggestPlace(place: string): void;
   /** Flags the new-game date field as invalid (empty message clears it). */
   setDateError(message: string): void;
-  focusHome(): void;
+  /** Focuses and selects the entry input used last (the home score until one was focused). */
+  focusEntry(): void;
 }
 
 /** Fills `container` (owned by the caller) with the header and the three screens. */
@@ -75,6 +76,6 @@ export function mountView(container: HTMLElement, handlers: ViewHandlers): View 
     setPlaceStatus: sheet.setPlaceStatus,
     suggestPlace: newGame.suggestPlace,
     setDateError: newGame.setDateError,
-    focusHome: sheet.focusHome,
+    focusEntry: sheet.focusEntry,
   };
 }

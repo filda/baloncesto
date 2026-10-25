@@ -89,7 +89,7 @@ describe("mountView", () => {
     expect($(root, "#location-status").textContent).toBe("Located");
     expect($(root, "#btn-add-place").textContent).toBe("Locating…");
     expect($<HTMLInputElement>(root, "#n-place").value).toBe("Brno");
-    view.focusHome();
+    view.focusEntry();
     expect(document.activeElement).toBe($(root, "#f-home"));
   });
 });

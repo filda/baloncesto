@@ -34,7 +34,8 @@ export interface SheetView {
   setInput(input: SnapshotInput): void;
   /** Status of the "+ ADD PLACE" lookup (null: idle); re-renders the info line. */
   setPlaceStatus(status: LocationStatus | null): void;
-  focusHome(): void;
+  /** Focuses and selects the entry input used last (the home score until one was focused). */
+  focusEntry(): void;
 }
 
 interface FieldSpec {
@@ -133,7 +134,14 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
     formError.textContent = "";
   });
 
-  for (const input of Object.values(inputs)) selectOnFocus(input);
+  // Remembered so recording keeps the user in the field they were typing in.
+  let lastInput = inputs.home;
+  for (const input of Object.values(inputs)) {
+    selectOnFocus(input);
+    input.addEventListener("focus", () => {
+      lastInput = input;
+    });
+  }
   inputs.clock.addEventListener("input", () => {
     const formatted = formatClockInput(inputs.clock.value);
     if (formatted === inputs.clock.value) return;
@@ -311,9 +319,9 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
       placeStatus = status;
       renderInfo();
     },
-    focusHome() {
-      inputs.home.focus();
-      inputs.home.select();
+    focusEntry() {
+      lastInput.focus();
+      lastInput.select();
     },
   };
 }

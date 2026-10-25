@@ -151,12 +151,22 @@ describe("submit flow", () => {
     ).toEqual(["3", "2:15", "40", "38"]);
   });
 
-  it("focusHome focuses and selects the home score", () => {
+  it("focusEntry focuses and selects the home score until another input was used", () => {
     sheet.setInput({ period: "1", clock: "10:00", home: "17", away: "0" });
-    sheet.focusHome();
+    sheet.focusEntry();
     expect(document.activeElement).toBe(input("home"));
     expect(input("home").selectionStart).toBe(0);
     expect(input("home").selectionEnd).toBe(2);
+  });
+
+  it("focusEntry returns to the input used last, after focus moved to the button", () => {
+    input("clock").focus();
+    $(root, "#btn-record").focus();
+    sheet.setInput({ period: "1", clock: "9:30", home: "17", away: "0" });
+    sheet.focusEntry();
+    expect(document.activeElement).toBe(input("clock"));
+    expect(input("clock").selectionStart).toBe(0);
+    expect(input("clock").selectionEnd).toBe(4);
   });
 });
 
