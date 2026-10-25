@@ -117,9 +117,13 @@ export function winProbability(snapshot: Snapshot): WinProbability {
   return { home, away: 1 - home, decided: false };
 }
 
-/** Whole percents that add up to 100; 0 and 100 only once the game is decided. */
-export function winPercents(win: WinProbability): { home: number; away: number } {
-  const rounded = Math.round(win.home * 100);
-  const home = win.decided ? rounded : Math.min(99, Math.max(1, rounded));
-  return { home, away: 100 - home };
+/**
+ * Whole percents that add up to 100 ("70%" · "30%"). Until the game is decided a value that
+ * would round to 0 or 100 reads "<1%" or ">99%", so it claims neither certainty nor a real 1%.
+ */
+export function winPercentText(win: WinProbability): { home: string; away: string } {
+  const home = Math.round(win.home * 100);
+  if (!win.decided && home === 0) return { home: "<1%", away: ">99%" };
+  if (!win.decided && home === 100) return { home: ">99%", away: "<1%" };
+  return { home: `${home}%`, away: `${100 - home}%` };
 }

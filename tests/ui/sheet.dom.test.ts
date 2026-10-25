@@ -360,9 +360,9 @@ describe("win probability", () => {
     expect($(win(), ".away").textContent).toBe("30%");
   });
 
-  it("caps an undecided game at 99% and shows 100% at the final buzzer", () => {
-    sheet.render(gameWith([{ period: 4, remaining: 60, home: 90, away: 60 }]), []);
-    expect(win().textContent).toBe("Win 99% · 1%");
+  it("shows >99% for an open game and 100% at the final buzzer", () => {
+    sheet.render(gameWith([{ period: 4, remaining: 120, home: 80, away: 60 }]), []);
+    expect(win().textContent).toBe("Win >99% · <1%");
     sheet.render(gameWith([{ period: 4, remaining: 0, home: 60, away: 90 }]), []);
     expect(win().textContent).toBe("Win 0% · 100%");
   });

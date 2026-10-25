@@ -54,7 +54,7 @@ The projection is possession based, per team and independent of the other team (
 
 ### Win probability
 
-`winProbability` in `src/domain/predict.ts` treats each team's remaining points as a sum of independent possessions with `POSSESSION_VARIANCE = 1.2` points² each. The final margin is then roughly normal with mean `predicted home − predicted away` and `sd = √(2 × remainingPossessions × POSSESSION_VARIANCE)` (about 13 points at tip-off), and the home team's chance is `Φ(margin / sd)`. With no time left the result is 1, 0 or 0.5 for a tie (overtime). The sheet prints whole percents adding up to 100 under the range, kept within 1–99 % until the game is decided.
+`winProbability` in `src/domain/predict.ts` treats each team's remaining points as a sum of independent possessions with `POSSESSION_VARIANCE = 1.2` points² each. The final margin is then roughly normal with mean `predicted home − predicted away` and `sd = √(2 × remainingPossessions × POSSESSION_VARIANCE)` (about 13 points at tip-off), and the home team's chance is `Φ(margin / sd)`. With no time left the result is 1, 0 or 0.5 for a tie (overtime). The sheet prints whole percents adding up to 100 under the range, showing ">99%" and "<1%" instead of 100 % and 0 % until the game is decided.
 
 ### Migration policy
 

@@ -10,7 +10,7 @@ import {
   predictRange,
   normalCdf,
   roundScore,
-  winPercents,
+  winPercentText,
   winProbability,
 } from "../../src/domain/predict";
 
@@ -247,28 +247,25 @@ describe("winProbability", () => {
   });
 });
 
-describe("winPercents", () => {
+describe("winPercentText", () => {
+  const text = (home: number, decided = false) => winPercentText({ home, away: 1 - home, decided });
+
   it("rounds to whole percents that add up to 100", () => {
-    expect(winPercents({ home: 0.741, away: 0.259, decided: false })).toEqual({
-      home: 74,
-      away: 26,
-    });
-    expect(winPercents({ home: 0.505, away: 0.495, decided: false })).toEqual({
-      home: 51,
-      away: 49,
-    });
+    expect(text(0.741)).toEqual({ home: "74%", away: "26%" });
+    expect(text(0.505)).toEqual({ home: "51%", away: "49%" });
+    expect(text(0.99)).toEqual({ home: "99%", away: "1%" });
+    expect(text(0.01)).toEqual({ home: "1%", away: "99%" });
   });
 
-  it("keeps 0 and 100 for decided games only", () => {
-    expect(winPercents({ home: 0.9999, away: 0.0001, decided: false })).toEqual({
-      home: 99,
-      away: 1,
-    });
-    expect(winPercents({ home: 0.0001, away: 0.9999, decided: false })).toEqual({
-      home: 1,
-      away: 99,
-    });
-    expect(winPercents({ home: 1, away: 0, decided: true })).toEqual({ home: 100, away: 0 });
-    expect(winPercents({ home: 0.5, away: 0.5, decided: true })).toEqual({ home: 50, away: 50 });
+  it("shows <1% and >99% instead of rounding an open game to 0 or 100", () => {
+    expect(text(0.996)).toEqual({ home: ">99%", away: "<1%" });
+    expect(text(0.004)).toEqual({ home: "<1%", away: ">99%" });
+    expect(text(1 - 1e-12)).toEqual({ home: ">99%", away: "<1%" });
+  });
+
+  it("shows 0 and 100 once the game is decided", () => {
+    expect(text(1, true)).toEqual({ home: "100%", away: "0%" });
+    expect(text(0, true)).toEqual({ home: "0%", away: "100%" });
+    expect(text(0.5, true)).toEqual({ home: "50%", away: "50%" });
   });
 });

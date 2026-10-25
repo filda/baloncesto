@@ -1,6 +1,6 @@
 import { formatClock } from "../../domain/clock";
 import { completeClockInput, formatClockInput } from "../../domain/clock-input";
-import { predictRange, roundScore, winPercents, winProbability } from "../../domain/predict";
+import { predictRange, roundScore, winPercentText, winProbability } from "../../domain/predict";
 import { rangeText, renderChart } from "../../chart/render";
 import type { Field, FieldError, SnapshotInput } from "../../domain/validate";
 import { formatDateTime } from "../format";
@@ -256,9 +256,9 @@ export function mountSheet(handlers: SheetHandlers): SheetView {
     rangeLine.hidden = !range;
     winLine.hidden = !last;
     if (last) {
-      const win = winPercents(winProbability(last));
-      winHome.textContent = `${win.home}%`;
-      winAway.textContent = `${win.away}%`;
+      const win = winPercentText(winProbability(last));
+      winHome.textContent = win.home;
+      winAway.textContent = win.away;
     }
     if (range) {
       rangeHome.textContent = rangeText({
