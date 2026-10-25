@@ -65,6 +65,7 @@ Visual direction: **paper scoresheet**. Off-white paper, a grid like an official
 - Input validation: period 1–9, time within the period length (10:00, overtime 5:00), scores 0–300 and not lower than in the previous snapshot, time not going back; a snapshot identical to the previous one is rejected.
 - The chart takes most of the screen, each team has its own curve in a fixed colour (blue and red ink).
 - Known data in a saturated colour, prediction lighter (dashed).
+- Dots mark only the entries where that team's score changed (the first entry counts from 0); the line still passes through every entry.
 - Projected final score below the chart.
 - Log of snapshots, newest first; each row has a × button to delete it (no separate undo button).
 - Below the log, shown only when some entry has the same score as the next one: "REMOVE REPEATED SCORES (n)" keeps only the last entry of each run of equal scores (the prediction does not change), after an inline confirm.

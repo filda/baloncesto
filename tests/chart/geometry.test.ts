@@ -101,6 +101,27 @@ describe("computeChart", () => {
     expect(model.home.range).toEqual({ low: 0, high: 108 });
   });
 
+  it("puts dots only on entries where the team's score changed", () => {
+    const entries: Snapshot[] = [
+      { period: 1, remaining: 600, home: 0, away: 0 },
+      { period: 1, remaining: 400, home: 2, away: 0 },
+      { period: 1, remaining: 300, home: 2, away: 3 },
+      { period: 1, remaining: 200, home: 2, away: 3 },
+      { period: 1, remaining: 100, home: 4, away: 3 },
+    ];
+    const model = computeChart(entries, W, H);
+    expect(model.home.known).toHaveLength(5);
+    expect(model.home.dots).toEqual([model.home.known[1], model.home.known[4]]);
+    expect(model.away.dots).toEqual([model.away.known[2]]);
+  });
+
+  it("counts the first entry's dot from zero", () => {
+    const model = computeChart([{ period: 1, remaining: 500, home: 0, away: 2 }], W, H);
+    expect(model.home.dots).toEqual([]);
+    expect(model.away.dots).toEqual([model.away.known[1]]);
+    expect(computeChart([], W, H).home.dots).toEqual([]);
+  });
+
   it("starts the known line at the origin when only later snapshots exist", () => {
     const model = computeChart([{ period: 1, remaining: 600, home: 0, away: 0 }, a], W, H);
     expect(model.home.known).toHaveLength(2);

@@ -272,7 +272,7 @@ export function renderChart(
         "stroke-linecap": "round",
       }),
     );
-    for (const p of team.known.slice(team.known.length - snapshots.length)) {
+    for (const p of team.dots) {
       root.append(svg("circle", { cx: p.x, cy: p.y, r: 3, fill: color }));
     }
   }

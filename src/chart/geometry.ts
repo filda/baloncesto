@@ -38,6 +38,8 @@ export interface PeriodLabel {
 
 export interface TeamSeries {
   known: Point[];
+  /** Entries where the team's score changed from the previous entry (the first entry counts from 0). */
+  dots: Point[];
   prediction: { from: Point; to: Point } | null;
   finalLabel: number | null;
   /** Rounded min–max of the final score. */
@@ -107,13 +109,18 @@ export function computeChart(snapshots: Snapshot[], width: number, height: numbe
     if (!first || elapsedSeconds(first.period, first.remaining) > 0) {
       known.push({ x: x(0), y: y(0) });
     }
+    const dots: Point[] = [];
+    let previous = 0;
     for (const s of snapshots) {
-      known.push({ x: x(elapsedSeconds(s.period, s.remaining)), y: y(s[team]) });
+      const point = { x: x(elapsedSeconds(s.period, s.remaining)), y: y(s[team]) };
+      known.push(point);
+      if (s[team] !== previous) dots.push(point);
+      previous = s[team];
     }
     // known always holds at least one point here; the guard only narrows the type.
     const from = known.at(-1);
     if (!prediction || !range || !last || !from) {
-      return { known, prediction: null, finalLabel: null, range: null, band: null };
+      return { known, dots, prediction: null, finalLabel: null, range: null, band: null };
     }
     const startX = x(prediction.elapsed);
     const endX = x(end);
@@ -127,6 +134,7 @@ export function computeChart(snapshots: Snapshot[], width: number, height: numbe
     ];
     return {
       known,
+      dots,
       prediction: {
         from,
         to: { x: x(end), y: y(prediction[team]) },
